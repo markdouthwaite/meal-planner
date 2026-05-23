@@ -44,3 +44,9 @@ src/
 ## Supabase Integration
 
 Copy `.env.example` to `.env.local` and fill in your Supabase credentials to connect a real backend.
+
+## TODO / Ideas to Explore
+
+- Explore calendar integration
+- Explore how agents could be used to accelerate this
+- Explore e.g. email / better reminders integration
