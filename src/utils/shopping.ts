@@ -4,15 +4,21 @@ import { generateId, formatQuantity } from './helpers';
 interface AggregatedItem {
   key: string;
   name: string;
+  /** Effective quantity — `originalQuantity` unless an override is set. */
   quantity: number;
+  /** Quantity computed from the plan + recipes, before any user override. */
+  originalQuantity: number;
+  /** True if the user has manually set a quantity for this item. */
+  overridden: boolean;
   unit: string;
 }
 
 export function aggregateShoppingList(
   plan: MealPlan,
-  recipes: Recipe[]
+  recipes: Recipe[],
+  overrides: Record<string, number> = {},
 ): AggregatedItem[] {
-  const map = new Map<string, AggregatedItem>();
+  const map = new Map<string, { name: string; quantity: number; unit: string }>();
 
   for (const planRecipe of plan.recipes) {
     const recipe = recipes.find(r => r.id === planRecipe.recipe_id);
@@ -31,7 +37,6 @@ export function aggregateShoppingList(
         existing.quantity += ing.quantity * scale;
       } else {
         map.set(key, {
-          key,
           name: ing.name.trim(),
           quantity: ing.quantity * scale,
           unit: ing.unit,
@@ -40,9 +45,20 @@ export function aggregateShoppingList(
     }
   }
 
-  return Array.from(map.values()).sort((a, b) =>
-    a.name.localeCompare(b.name)
-  );
+  return Array.from(map.entries())
+    .map(([key, item]) => {
+      const override = overrides[key];
+      const overridden = override !== undefined;
+      return {
+        key,
+        name: item.name,
+        quantity: overridden ? override : item.quantity,
+        originalQuantity: item.quantity,
+        overridden,
+        unit: item.unit,
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function shoppingListToCSV(

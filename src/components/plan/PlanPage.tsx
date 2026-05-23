@@ -28,6 +28,14 @@ export function PlanPage() {
     dispatch({ type: 'SET_SERVINGS_OVERRIDE', recipeId, servings });
   }
 
+  function handleClearPlan() {
+    if (planRecipes.length === 0) return;
+    const ok = window.confirm(
+      `Clear all ${planRecipes.length} meal${planRecipes.length !== 1 ? 's' : ''} from this plan?\n\nYour recipes and shopping-list items aren't affected.`,
+    );
+    if (ok) dispatch({ type: 'CLEAR_PLAN' });
+  }
+
   return (
     <div className="flex flex-col h-full bg-gray-50">
       {/* Week header */}
@@ -98,6 +106,14 @@ export function PlanPage() {
             >
               <Plus size={16} /> Add more meals
             </button>
+            <div className="pt-2 flex justify-center">
+              <button
+                onClick={handleClearPlan}
+                className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors underline-offset-2 hover:underline px-3 py-2"
+              >
+                Clear plan
+              </button>
+            </div>
           </>
         )}
       </div>
