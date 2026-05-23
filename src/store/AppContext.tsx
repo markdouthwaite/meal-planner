@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import type { Recipe, MealPlan, ShoppingItem, PlanSlot, WeekDay } from '../types';
+import type { Recipe, MealPlan, ShoppingItem, PlanSlot } from '../types';
 import { getWeekStart, generateId, WEEK_DAYS } from '../utils/helpers';
 import { SEED_RECIPES } from '../utils/seedData';
 
@@ -17,7 +17,7 @@ type Action =
   | { type: 'UPDATE_RECIPE'; recipe: Recipe }
   | { type: 'DELETE_RECIPE'; id: string }
   | { type: 'SET_SLOT'; slot: PlanSlot }
-  | { type: 'CLEAR_SLOT'; day: WeekDay; meal: 'dinner' }
+  | { type: 'CLEAR_SLOT'; date: string; meal: 'dinner' }
   | { type: 'CLEAR_PLAN' }
   | { type: 'ADD_SHOPPING_ITEM'; item: ShoppingItem }
   | { type: 'TOGGLE_SHOPPING_ITEM'; id: string }
@@ -32,39 +32,88 @@ type Action =
 function getDefaultPlan(): MealPlan {
   return {
     id: generateId(),
-    week_start: getWeekStart(new Date()).toISOString().split('T')[0],
     slots: [],
     status: 'planning',
   };
 }
 
+const WD_INDEX: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
+
 /**
- * Convert a pre-slot-model plan (which had `recipes: PlanRecipe[]`) into the
- * new slot-based shape. Distributes one recipe per day starting Monday so the
- * user can re-arrange from there. Any recipes beyond 7 are dropped — they
- * predate the day model and can be re-added manually.
+ * Bring an arbitrary stored plan up to the current schema. Handles three
+ * historical shapes:
+ * - Phase 2 (current): { slots: PlanSlot[] } where each slot has `date`.
+ * - Phase 1: slots had `day: WeekDay` instead of `date`. We translate the
+ *   weekday to a date within the current Monday-Sunday week.
+ * - Phase 0: no `slots`, just `recipes: PlanRecipe[]`. We distribute them
+ *   one-per-day across this week starting Monday.
  *
- * Also re-anchors `week_start` to today's Monday. Phase 1 only stores a
- * single plan, so any saved week_start is treated as "the current plan,
- * relabeled to this week" rather than a stale historical plan.
+ * Old fields (`week_start`) are dropped silently — the new model doesn't
+ * anchor to a single week.
  */
 function migratePlan(raw: unknown): MealPlan {
-  const plan = raw as Partial<MealPlan> & { recipes?: { recipe_id: string; servings_override: number | null }[] };
+  const plan = raw as Partial<MealPlan> & {
+    recipes?: { recipe_id: string; servings_override: number | null }[];
+    slots?: (PlanSlot | { day?: string; date?: string; leftovers_of?: string; meal: 'dinner'; mode: PlanSlot['mode']; recipe_id?: string; servings_override: number | null; notes?: string })[];
+  };
   const thisMonday = getWeekStart(new Date()).toISOString().split('T')[0];
+
+  // Helper: WeekDay key → ISO date for the current week.
+  const wdToISO = (wd: string | undefined): string | undefined => {
+    if (!wd) return undefined;
+    const idx = WD_INDEX[wd];
+    if (idx === undefined) return undefined;
+    const d = new Date(thisMonday + 'T00:00:00');
+    d.setDate(d.getDate() + idx);
+    return d.toISOString().split('T')[0];
+  };
+
   if (Array.isArray(plan.slots)) {
-    return { ...(plan as MealPlan), week_start: thisMonday };
+    // Phase 1 had `day`; Phase 2 has `date`. Normalise to `date`.
+    const slots: PlanSlot[] = plan.slots
+      .map(s => {
+        if ('date' in s && typeof s.date === 'string') {
+          return s as PlanSlot;
+        }
+        const date = wdToISO((s as { day?: string }).day);
+        if (!date) return null;
+        const leftovers_of =
+          'leftovers_of' in s && typeof s.leftovers_of === 'string' && WD_INDEX[s.leftovers_of] !== undefined
+            ? wdToISO(s.leftovers_of)
+            : (s as PlanSlot).leftovers_of;
+        return {
+          date,
+          meal: s.meal ?? 'dinner',
+          mode: s.mode,
+          recipe_id: s.recipe_id,
+          servings_override: s.servings_override ?? null,
+          leftovers_of,
+          notes: s.notes,
+        } as PlanSlot;
+      })
+      .filter((s): s is PlanSlot => s !== null);
+    return {
+      id: plan.id ?? generateId(),
+      slots,
+      status: plan.status ?? 'planning',
+    };
   }
+
+  // Phase 0: PlanRecipe[] → distribute one-per-day starting Monday this week.
   const oldRecipes = Array.isArray(plan.recipes) ? plan.recipes : [];
-  const slots: PlanSlot[] = oldRecipes.slice(0, WEEK_DAYS.length).map((pr, i) => ({
-    day: WEEK_DAYS[i],
-    meal: 'dinner',
-    mode: 'cook',
-    recipe_id: pr.recipe_id,
-    servings_override: pr.servings_override ?? null,
-  }));
+  const slots: PlanSlot[] = oldRecipes.slice(0, WEEK_DAYS.length).map((pr, i) => {
+    const d = new Date(thisMonday + 'T00:00:00');
+    d.setDate(d.getDate() + i);
+    return {
+      date: d.toISOString().split('T')[0],
+      meal: 'dinner',
+      mode: 'cook',
+      recipe_id: pr.recipe_id,
+      servings_override: pr.servings_override ?? null,
+    };
+  });
   return {
     id: plan.id ?? generateId(),
-    week_start: thisMonday,
     slots,
     status: plan.status ?? 'planning',
   };
@@ -79,9 +128,9 @@ const initialState: AppState = {
   seenSeedIds: [],
 };
 
-/** Upsert a slot keyed by (day, meal). */
+/** Upsert a slot keyed by (date, meal). */
 function upsertSlot(slots: PlanSlot[], next: PlanSlot): PlanSlot[] {
-  const idx = slots.findIndex(s => s.day === next.day && s.meal === next.meal);
+  const idx = slots.findIndex(s => s.date === next.date && s.meal === next.meal);
   if (idx === -1) return [...slots, next];
   const copy = slots.slice();
   copy[idx] = next;
@@ -112,7 +161,7 @@ function reducer(state: AppState, action: Action): AppState {
             .map(s => {
               if (s.mode !== 'leftovers') return s;
               const sourceStillExists = state.currentPlan.slots.some(
-                src => src.day === s.leftovers_of && src.recipe_id && src.recipe_id !== action.id,
+                src => src.date === s.leftovers_of && src.recipe_id && src.recipe_id !== action.id,
               );
               return sourceStillExists ? s : { ...s, mode: 'cook' as const, recipe_id: undefined, leftovers_of: undefined };
             }),
@@ -134,7 +183,7 @@ function reducer(state: AppState, action: Action): AppState {
         currentPlan: {
           ...state.currentPlan,
           slots: state.currentPlan.slots.filter(
-            s => !(s.day === action.day && s.meal === action.meal),
+            s => !(s.date === action.date && s.meal === action.meal),
           ),
         },
       };

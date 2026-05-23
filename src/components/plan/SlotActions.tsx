@@ -1,37 +1,42 @@
 import { useEffect, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, MinusCircle, PlusCircle,
-  Replace, RotateCw, Trash2, Utensils, X,
+  ChevronLeft, ChevronRight, MinusCircle, PlusCircle, Replace,
+  RotateCw, Trash2, Utensils, X, BookOpen,
 } from 'lucide-react';
-import type { PlanSlot, Recipe, WeekDay } from '../../types';
-import { WEEK_DAY_LABELS } from '../../utils/helpers';
+import type { PlanSlot, Recipe } from '../../types';
+import { formatDayLong } from '../../utils/helpers';
 import { useAppDispatch } from '../../store/AppContext';
 
 interface SlotActionsProps {
   open: boolean;
   onClose: () => void;
-  /** The current slot being acted on (always defined when open=true). */
-  slot: PlanSlot;
-  /** The recipe for cook slots, or for leftovers the source-day recipe. */
+  /** ISO date the action sheet is for. */
+  date: string;
+  /** Current slot for this date (undefined if empty). */
+  slot: PlanSlot | undefined;
+  /** Recipe for cook slots, or for leftovers the source-date recipe. */
   recipe: Recipe | undefined;
-  /** Cook slots in the same plan (used as candidates for "make leftovers of..."). */
-  cookSlots: { day: WeekDay; recipe: Recipe }[];
-  /** Caller opens the recipe picker for the same slot. */
+  /** Cook slots elsewhere in the window — candidates for "leftovers of…". */
+  cookSlots: { date: string; recipe: Recipe }[];
+  /** Caller opens the recipe picker for this date. */
   onPickRecipe: () => void;
 }
 
+const MEAL = 'dinner' as const;
+
 /**
- * Bottom-sheet of quick actions for an already-filled slot. The set of actions
- * depends on `slot.mode`.
+ * Bottom-sheet of quick actions for a slot. If the slot is empty (undefined),
+ * we show a 4-way choice (recipe / leftovers / out / skip). Otherwise the
+ * actions depend on the slot's mode.
  */
-export function SlotActions({ open, onClose, slot, recipe, cookSlots, onPickRecipe }: SlotActionsProps) {
+export function SlotActions({ open, onClose, date, slot, recipe, cookSlots, onPickRecipe }: SlotActionsProps) {
   const dispatch = useAppDispatch();
   const [editingNote, setEditingNote] = useState(false);
-  const [noteDraft, setNoteDraft] = useState(slot.notes ?? '');
+  const [noteDraft, setNoteDraft] = useState(slot?.notes ?? '');
   const [pickingSource, setPickingSource] = useState(false);
 
-  // Caller controls mount via `open={true}` — we don't need to reset state on
-  // open/close ourselves. Just lock body scroll for the lifetime of the sheet.
+  // Caller controls mount via `open`. We just lock body scroll for the
+  // sheet's lifetime.
   useEffect(() => {
     document.body.style.overflow = 'hidden';
     return () => { document.body.style.overflow = ''; };
@@ -39,37 +44,23 @@ export function SlotActions({ open, onClose, slot, recipe, cookSlots, onPickReci
 
   if (!open) return null;
 
-  const dayLabel = WEEK_DAY_LABELS[slot.day];
-  const servings = slot.servings_override ?? recipe?.servings ?? 0;
+  const dayLabel = formatDayLong(date);
+  const servings = slot?.servings_override ?? recipe?.servings ?? 0;
   const isDouble = recipe ? servings >= recipe.servings * 2 : false;
+  const otherCookSlots = cookSlots.filter(c => c.date !== date);
 
-  function update(next: Partial<PlanSlot>) {
-    dispatch({ type: 'SET_SLOT', slot: { ...slot, ...next } });
+  function setSlot(next: Omit<PlanSlot, 'date' | 'meal'>) {
+    dispatch({ type: 'SET_SLOT', slot: { date, meal: MEAL, ...next } });
   }
 
   function clear() {
-    dispatch({ type: 'CLEAR_SLOT', day: slot.day, meal: slot.meal });
+    dispatch({ type: 'CLEAR_SLOT', date, meal: MEAL });
     onClose();
   }
 
-  function setMode(mode: PlanSlot['mode']) {
-    if (mode === 'cook' && !slot.recipe_id) {
-      onPickRecipe();
-      onClose();
-      return;
-    }
-    if (mode === 'leftovers') {
-      setPickingSource(true);
-      return;
-    }
-    if (mode === 'cook') {
-      update({ mode: 'cook', leftovers_of: undefined });
-    } else {
-      update({ mode, recipe_id: undefined, leftovers_of: undefined, servings_override: null });
-    }
-  }
-
-  // Sub-screen: pick which cook day this slot is leftovers of.
+  // ─────────────────────────────────────────────────────────────────────────
+  // Sub-screen: pick the source cook day for a leftovers slot.
+  // ─────────────────────────────────────────────────────────────────────────
   if (pickingSource) {
     return (
       <Sheet onClose={onClose}>
@@ -79,36 +70,96 @@ export function SlotActions({ open, onClose, slot, recipe, cookSlots, onPickReci
           subtitle={dayLabel}
         />
         <div className="p-4 pb-safe">
-          {cookSlots.length === 0 ? (
+          {otherCookSlots.length === 0 ? (
             <p className="text-sm text-gray-500 text-center py-6">
-              No cook slots in this week to re-use yet. Pick a recipe for another day first.
+              No cook slots in this window yet. Pick a recipe for another day first.
             </p>
           ) : (
             <ul className="space-y-2">
-              {cookSlots
-                .filter(c => c.day !== slot.day) // can't be leftovers of itself
-                .map(({ day, recipe: r }) => (
-                  <li key={day}>
-                    <button
-                      onClick={() => {
-                        update({ mode: 'leftovers', leftovers_of: day, recipe_id: undefined, servings_override: null });
-                        onClose();
-                      }}
-                      className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:border-brand-400 hover:bg-brand-50 transition-colors text-left"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{WEEK_DAY_LABELS[day]}</p>
-                        <p className="text-sm font-medium text-gray-900 truncate">{r.title}</p>
-                      </div>
-                      <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
-                    </button>
-                  </li>
-                ))}
+              {otherCookSlots.map(({ date: sourceDate, recipe: r }) => (
+                <li key={sourceDate}>
+                  <button
+                    onClick={() => {
+                      setSlot({
+                        mode: 'leftovers',
+                        leftovers_of: sourceDate,
+                        recipe_id: undefined,
+                        servings_override: null,
+                      });
+                      onClose();
+                    }}
+                    className="w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-gray-200 hover:border-brand-400 hover:bg-brand-50 transition-colors text-left"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-gray-400">{formatDayLong(sourceDate)}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{r.title}</p>
+                    </div>
+                    <ChevronRight size={16} className="text-gray-400 flex-shrink-0" />
+                  </button>
+                </li>
+              ))}
             </ul>
           )}
         </div>
       </Sheet>
     );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Empty slot → 4-way choice.
+  // ─────────────────────────────────────────────────────────────────────────
+  if (!slot) {
+    return (
+      <Sheet onClose={onClose}>
+        <Header title={dayLabel} subtitle="What shall we have?" onClose={onClose} />
+        <div className="px-4 pb-safe pt-1">
+          <ActionRow
+            icon={<BookOpen size={16} />}
+            label="Pick a recipe"
+            sublabel="Choose from your collection"
+            onClick={() => { onPickRecipe(); onClose(); }}
+          />
+          <ActionRow
+            icon={<RotateCw size={16} />}
+            label="Leftovers of…"
+            sublabel={otherCookSlots.length === 0 ? 'No cook days in this window yet' : 'Re-eat a recipe from another day'}
+            onClick={() => setPickingSource(true)}
+          />
+          <ActionRow
+            icon={<Utensils size={16} />}
+            label="Eating out"
+            onClick={() => {
+              setSlot({ mode: 'out', recipe_id: undefined, servings_override: null });
+              onClose();
+            }}
+          />
+          <ActionRow
+            icon={<X size={16} />}
+            label="Skip this meal"
+            onClick={() => {
+              setSlot({ mode: 'skip', recipe_id: undefined, servings_override: null });
+              onClose();
+            }}
+          />
+        </div>
+      </Sheet>
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // Filled slot → mode-specific actions.
+  // ─────────────────────────────────────────────────────────────────────────
+  function setMode(mode: PlanSlot['mode']) {
+    if (mode === 'leftovers') {
+      setPickingSource(true);
+      return;
+    }
+    if (mode === 'cook') {
+      onPickRecipe();
+      onClose();
+      return;
+    }
+    setSlot({ mode, recipe_id: undefined, leftovers_of: undefined, servings_override: null });
   }
 
   return (
@@ -123,7 +174,7 @@ export function SlotActions({ open, onClose, slot, recipe, cookSlots, onPickReci
               <span className="text-sm font-medium text-gray-700">Servings</span>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => update({ servings_override: Math.max(1, servings - 1) })}
+                  onClick={() => setSlot({ ...slot, servings_override: Math.max(1, servings - 1) })}
                   className="w-11 h-11 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50"
                   aria-label="Decrease servings"
                 >
@@ -133,7 +184,7 @@ export function SlotActions({ open, onClose, slot, recipe, cookSlots, onPickReci
                   {servings}
                 </span>
                 <button
-                  onClick={() => update({ servings_override: servings + 1 })}
+                  onClick={() => setSlot({ ...slot, servings_override: servings + 1 })}
                   className="w-11 h-11 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:bg-gray-50"
                   aria-label="Increase servings"
                 >
@@ -143,7 +194,8 @@ export function SlotActions({ open, onClose, slot, recipe, cookSlots, onPickReci
             </div>
 
             <button
-              onClick={() => update({
+              onClick={() => setSlot({
+                ...slot,
                 servings_override: isDouble ? null : recipe.servings * 2,
               })}
               className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-colors mb-2 ${
@@ -173,7 +225,7 @@ export function SlotActions({ open, onClose, slot, recipe, cookSlots, onPickReci
           <>
             <ActionRow
               icon={<ChevronRight size={16} />}
-              label={`Source: ${slot.leftovers_of ? WEEK_DAY_LABELS[slot.leftovers_of] : '—'}`}
+              label={`Source: ${slot.leftovers_of ? formatDayLong(slot.leftovers_of) : '—'}`}
               sublabel="Change source day"
               onClick={() => setPickingSource(true)}
             />
@@ -186,7 +238,8 @@ export function SlotActions({ open, onClose, slot, recipe, cookSlots, onPickReci
         {/* ── Out / Skip slot actions ───────────────────────────────────── */}
         {(slot.mode === 'out' || slot.mode === 'skip') && (
           <>
-            <ActionRow icon={<Replace size={16} />} label="Pick a recipe" onClick={() => { onPickRecipe(); onClose(); }} />
+            <ActionRow icon={<BookOpen size={16} />} label="Pick a recipe" onClick={() => { onPickRecipe(); onClose(); }} />
+            <ActionRow icon={<RotateCw size={16} />} label="Make this leftovers of…" onClick={() => setMode('leftovers')} />
             <ActionRow
               icon={slot.mode === 'out' ? <X size={16} /> : <Utensils size={16} />}
               label={slot.mode === 'out' ? 'Switch to skipped' : 'Switch to eating out'}
@@ -210,7 +263,7 @@ export function SlotActions({ open, onClose, slot, recipe, cookSlots, onPickReci
               <div className="flex gap-2">
                 <button
                   onClick={() => {
-                    update({ notes: noteDraft.trim() || undefined });
+                    setSlot({ ...slot, notes: noteDraft.trim() || undefined });
                     setEditingNote(false);
                   }}
                   className="flex-1 py-2 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 transition-colors"

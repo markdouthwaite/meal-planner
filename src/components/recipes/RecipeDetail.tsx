@@ -178,15 +178,10 @@ export function RecipeDetail({
           )}
           {onAddToPlan && (
             <button
-              onClick={() => { if (!inPlan) { onAddToPlan(); onClose(); } }}
-              disabled={inPlan}
-              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-colors min-h-[44px] ${
-                inPlan
-                  ? 'bg-brand-50 text-brand-600 cursor-default'
-                  : 'bg-brand-600 text-white hover:bg-brand-700'
-              }`}
+              onClick={() => { onAddToPlan(); onClose(); }}
+              className="flex-1 py-3 rounded-xl text-sm font-semibold transition-colors min-h-[44px] bg-brand-600 text-white hover:bg-brand-700"
             >
-              {inPlan ? 'Already in Plan' : addLabel}
+              {addLabel}{inPlan && <span className="opacity-80 text-xs font-normal ml-1.5">· in plan</span>}
             </button>
           )}
         </div>

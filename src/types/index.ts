@@ -28,8 +28,6 @@ export interface Recipe {
   updated_at: string;
 }
 
-export type WeekDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
-
 /**
  * What's happening in this meal slot:
  * - `cook`      — cooking the recipe today; ingredients go on the shopping list.
@@ -42,24 +40,27 @@ export type WeekDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 export type SlotMode = 'cook' | 'leftovers' | 'out' | 'skip';
 
 export interface PlanSlot {
-  day: WeekDay;
+  /** ISO date (YYYY-MM-DD) the slot belongs to. */
+  date: string;
   meal: 'dinner'; // Phase 1: dinner only. Lunch slots later.
   mode: SlotMode;
   recipe_id?: string;
   /** Multiplier for the recipe's default servings, e.g. 2 to cook double. */
   servings_override: number | null;
-  /** For `mode: 'leftovers'`, the day whose cook-slot this re-uses. */
-  leftovers_of?: WeekDay;
+  /** For `mode: 'leftovers'`, the ISO date of the cook-slot this re-uses. */
+  leftovers_of?: string;
   /** Optional free-text note ("back late, low effort", etc.) */
   notes?: string;
 }
 
 export interface MealPlan {
   id: string;
-  week_start: string; // ISO date string: Monday of the week
-  slots: PlanSlot[];  // max one per (day, meal)
+  slots: PlanSlot[]; // max one per (date, meal)
   status: 'planning' | 'active' | 'archived';
 }
+
+/** Day-of-week helper type (used purely for short label display). */
+export type WeekDay = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat' | 'sun';
 
 export interface ShoppingItem {
   id: string;

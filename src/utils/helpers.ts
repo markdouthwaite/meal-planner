@@ -50,6 +50,70 @@ export function isCurrentWeek(weekStart: string): boolean {
   return weekStart === current;
 }
 
+// ---------------------------------------------------------------------------
+// Date helpers (ISO YYYY-MM-DD strings, treated as local-tz dates)
+// ---------------------------------------------------------------------------
+
+/** Today as an ISO YYYY-MM-DD string (local time). */
+export function todayISO(): string {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().split('T')[0];
+}
+
+/** Add `n` days to an ISO YYYY-MM-DD date, returning a new ISO string. */
+export function addDaysISO(iso: string, n: number): string {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + n);
+  return d.toISOString().split('T')[0];
+}
+
+/** Difference in days between two ISO dates (b - a). */
+export function daysBetweenISO(a: string, b: string): number {
+  const da = new Date(a + 'T00:00:00').getTime();
+  const db = new Date(b + 'T00:00:00').getTime();
+  return Math.round((db - da) / 86_400_000);
+}
+
+/** "Mon", "Tue", … for an ISO date. */
+export function formatDayShort(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { weekday: 'short' });
+}
+
+/** "Monday", "Tuesday", … for an ISO date. */
+export function formatDayLong(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { weekday: 'long' });
+}
+
+/** "24 May" — short numeric date. */
+export function formatDateMedium(iso: string): string {
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+}
+
+/** A friendly two-line "Mon" / "24" label for the day-stripe on slot cards. */
+export function formatDayStripe(iso: string): { weekday: string; day: number } {
+  const d = new Date(iso + 'T00:00:00');
+  return {
+    weekday: d.toLocaleDateString('en-GB', { weekday: 'short' }),
+    day: d.getDate(),
+  };
+}
+
+/** "24–30 May" or "30 May – 5 Jun" if the range straddles a month. */
+export function formatDateRange(start: string, end: string): string {
+  const ds = new Date(start + 'T00:00:00');
+  const de = new Date(end + 'T00:00:00');
+  const sameMonth = ds.getMonth() === de.getMonth() && ds.getFullYear() === de.getFullYear();
+  const startStr = sameMonth
+    ? String(ds.getDate())
+    : ds.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  const endStr = de.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+  return `${startStr} – ${endStr}`;
+}
+
 export const UNITS: Unit[] = [
   'g', 'kg', 'ml', 'l', 'tsp', 'tbsp', 'cups', 'pieces', 'bunch', 'tin', 'pack',
 ];

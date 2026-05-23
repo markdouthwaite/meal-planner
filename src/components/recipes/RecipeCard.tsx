@@ -1,4 +1,4 @@
-import { Users, CheckCircle, PlusCircle } from 'lucide-react';
+import { Users, PlusCircle } from 'lucide-react';
 import type { Recipe } from '../../types';
 import { MealTypeBadge } from '../ui/MealTypeBadge';
 import { RecipeImage } from '../ui/RecipeImage';
@@ -74,19 +74,13 @@ export function RecipeCard({ recipe, inPlan, onAddToPlan, addLabel = 'Add', onCl
           </span>
           {onAddToPlan && (
             <button
-              onClick={e => { e.stopPropagation(); if (!inPlan) onAddToPlan(); }}
-              disabled={inPlan}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors min-h-[44px] min-w-[44px] justify-center ${
-                inPlan
-                  ? 'bg-brand-50 text-brand-600 cursor-default'
-                  : 'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800'
-              }`}
-              aria-label={inPlan ? 'Already in plan' : addLabel}
+              onClick={e => { e.stopPropagation(); onAddToPlan(); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors min-h-[44px] min-w-[44px] justify-center bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800"
+              aria-label={addLabel}
             >
-              {inPlan ? (
-                <><CheckCircle size={13} /> In Plan</>
-              ) : (
-                <><PlusCircle size={13} /> {addLabel}</>
+              <PlusCircle size={13} /> {addLabel}
+              {inPlan && (
+                <span className="opacity-80 text-[10px] font-normal ml-0.5">· in plan</span>
               )}
             </button>
           )}
