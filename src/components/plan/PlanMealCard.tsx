@@ -18,6 +18,8 @@ export function PlanMealCard({ planRecipe, recipe, onRemove, onServingsChange }:
       <RecipeImage
         src={recipe.image}
         alt={recipe.title}
+        title={recipe.title}
+        mealTypes={recipe.meal_type}
         className="w-16 h-16 rounded-xl flex-shrink-0"
       />
       <div className="flex-1 min-w-0">

@@ -52,6 +52,8 @@ export function RecipeDetail({
       <RecipeImage
         src={recipe.image}
         alt={recipe.title}
+        title={recipe.title}
+        mealTypes={recipe.meal_type}
         className="w-full h-52 sm:h-64"
       />
 

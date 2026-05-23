@@ -13,12 +13,14 @@ interface RecipeCardProps {
 export function RecipeCard({ recipe, inPlan, onAddToPlan, onClick }: RecipeCardProps) {
   return (
     <div
-      className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden flex flex-col cursor-pointer hover:shadow-md transition-shadow active:scale-[0.98]"
+      className="group bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden flex flex-col cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98]"
       onClick={onClick}
     >
       <RecipeImage
         src={recipe.image}
         alt={recipe.title}
+        title={recipe.title}
+        mealTypes={recipe.meal_type}
         className="w-full h-40 sm:h-44"
       />
 
