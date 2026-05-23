@@ -60,7 +60,7 @@ export function LockScreen({ signIn }: LockScreenProps) {
             }}
             placeholder="Password"
             autoComplete="current-password"
-            className={`w-full pl-4 pr-12 py-3 rounded-xl border bg-white text-sm focus:outline-none focus:ring-2 transition-shadow ${
+            className={`w-full pl-4 pr-12 py-3 rounded-xl border bg-white text-base focus:outline-none focus:ring-2 transition-shadow ${
               error
                 ? 'border-red-300 focus:ring-red-400'
                 : 'border-gray-200 focus:ring-brand-500'
