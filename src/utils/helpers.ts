@@ -1,4 +1,20 @@
-import type { Unit } from '../types';
+import type { Unit, WeekDay } from '../types';
+
+export const WEEK_DAYS: WeekDay[] = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+
+export const WEEK_DAY_LABELS: Record<WeekDay, string> = {
+  mon: 'Monday',
+  tue: 'Tuesday',
+  wed: 'Wednesday',
+  thu: 'Thursday',
+  fri: 'Friday',
+  sat: 'Saturday',
+  sun: 'Sunday',
+};
+
+export const WEEK_DAY_SHORT_LABELS: Record<WeekDay, string> = {
+  mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat', sun: 'Sun',
+};
 
 export function generateId(): string {
   return Math.random().toString(36).slice(2) + Date.now().toString(36);

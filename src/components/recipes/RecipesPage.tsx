@@ -15,9 +15,17 @@ const TYPE_LABELS: Record<MealType, string> = {
 interface RecipesPageProps {
   /** 'full' (default) shows add/edit/delete; 'picker' hides authoring controls */
   mode?: 'full' | 'picker';
+  /**
+   * When set (picker mode), tapping a recipe's "Add" button calls this with
+   * the chosen recipe id instead of dispatching ADD_TO_PLAN. Lets the caller
+   * (e.g. PlanPage) attach the recipe to a specific slot.
+   */
+  onPick?: (recipeId: string) => void;
+  /** Label for the Add button when used as a slot picker. */
+  pickLabel?: string;
 }
 
-export function RecipesPage({ mode = 'full' }: RecipesPageProps) {
+export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: RecipesPageProps) {
   const { recipes, currentPlan } = useAppState();
   const dispatch = useAppDispatch();
 
@@ -28,7 +36,10 @@ export function RecipesPage({ mode = 'full' }: RecipesPageProps) {
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null | undefined>(undefined);
   const [showAdd, setShowAdd] = useState(false);
 
-  const planIds = useMemo(() => new Set(currentPlan.recipes.map(pr => pr.recipe_id)), [currentPlan]);
+  const planIds = useMemo(
+    () => new Set(currentPlan.slots.filter(s => s.recipe_id).map(s => s.recipe_id!)),
+    [currentPlan],
+  );
 
   const filtered = useMemo(() => {
     return recipes.filter(r => {
@@ -50,7 +61,11 @@ export function RecipesPage({ mode = 'full' }: RecipesPageProps) {
   }
 
   function handleAddToPlan(recipeId: string) {
-    dispatch({ type: 'ADD_TO_PLAN', recipeId });
+    if (onPick) {
+      onPick(recipeId);
+    }
+    // In 'full' (browse) mode the Add button is suppressed below — there's
+    // nowhere to add to without slot context.
   }
 
   function handleSaveRecipe(recipe: Recipe) {
@@ -162,7 +177,8 @@ export function RecipesPage({ mode = 'full' }: RecipesPageProps) {
                 key={recipe.id}
                 recipe={recipe}
                 inPlan={planIds.has(recipe.id)}
-                onAddToPlan={() => handleAddToPlan(recipe.id)}
+                onAddToPlan={mode === 'picker' ? () => handleAddToPlan(recipe.id) : undefined}
+                addLabel={pickLabel}
                 onClick={() => setSelectedRecipe(recipe)}
               />
             ))}
@@ -179,7 +195,8 @@ export function RecipesPage({ mode = 'full' }: RecipesPageProps) {
           onEdit={mode === 'full' ? () => { setEditingRecipe(selectedRecipe); setSelectedRecipe(null); setShowAdd(true); } : undefined}
           onDelete={mode === 'full' ? () => handleDeleteRecipe(selectedRecipe.id) : undefined}
           inPlan={planIds.has(selectedRecipe.id)}
-          onAddToPlan={() => handleAddToPlan(selectedRecipe.id)}
+          onAddToPlan={mode === 'picker' ? () => handleAddToPlan(selectedRecipe.id) : undefined}
+          addLabel={pickLabel}
         />
       )}
 

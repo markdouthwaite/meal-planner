@@ -26,7 +26,7 @@ function AppShell() {
         <main className="flex-1 overflow-hidden pb-14 sm:pb-0">
           <div className="h-full overflow-hidden">
             <Routes>
-              <Route path="/" element={<Navigate to="/recipes" replace />} />
+              <Route path="/" element={<Navigate to="/plan" replace />} />
               <Route path="/recipes" element={<RecipesPage />} />
               <Route path="/plan" element={<PlanPage />} />
             </Routes>

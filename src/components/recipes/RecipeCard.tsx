@@ -6,11 +6,17 @@ import { RecipeImage } from '../ui/RecipeImage';
 interface RecipeCardProps {
   recipe: Recipe;
   inPlan: boolean;
-  onAddToPlan: () => void;
+  /**
+   * If provided, renders an Add button using `addLabel`. If not, the card is
+   * tap-to-open only (used in the browse-library Recipes tab where there's no
+   * slot context).
+   */
+  onAddToPlan?: () => void;
+  addLabel?: string;
   onClick: () => void;
 }
 
-export function RecipeCard({ recipe, inPlan, onAddToPlan, onClick }: RecipeCardProps) {
+export function RecipeCard({ recipe, inPlan, onAddToPlan, addLabel = 'Add', onClick }: RecipeCardProps) {
   return (
     <div
       className="group bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden flex flex-col cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98]"
@@ -25,7 +31,6 @@ export function RecipeCard({ recipe, inPlan, onAddToPlan, onClick }: RecipeCardP
       />
 
       <div className="p-4 flex flex-col flex-1">
-        {/* Meal type badges */}
         {recipe.meal_type.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-2">
             {recipe.meal_type.map(t => (
@@ -44,7 +49,6 @@ export function RecipeCard({ recipe, inPlan, onAddToPlan, onClick }: RecipeCardP
           </p>
         )}
 
-        {/* Tags – max 2 visible */}
         {recipe.tags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-3">
             {recipe.tags.slice(0, 2).map(tag => (
@@ -68,22 +72,24 @@ export function RecipeCard({ recipe, inPlan, onAddToPlan, onClick }: RecipeCardP
             <Users size={12} />
             {recipe.servings}
           </span>
-          <button
-            onClick={e => { e.stopPropagation(); if (!inPlan) onAddToPlan(); }}
-            disabled={inPlan}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors min-h-[44px] min-w-[44px] justify-center ${
-              inPlan
-                ? 'bg-brand-50 text-brand-600 cursor-default'
-                : 'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800'
-            }`}
-            aria-label={inPlan ? 'Already in plan' : 'Add to plan'}
-          >
-            {inPlan ? (
-              <><CheckCircle size={13} /> In Plan</>
-            ) : (
-              <><PlusCircle size={13} /> Add</>
-            )}
-          </button>
+          {onAddToPlan && (
+            <button
+              onClick={e => { e.stopPropagation(); if (!inPlan) onAddToPlan(); }}
+              disabled={inPlan}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors min-h-[44px] min-w-[44px] justify-center ${
+                inPlan
+                  ? 'bg-brand-50 text-brand-600 cursor-default'
+                  : 'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800'
+              }`}
+              aria-label={inPlan ? 'Already in plan' : addLabel}
+            >
+              {inPlan ? (
+                <><CheckCircle size={13} /> In Plan</>
+              ) : (
+                <><PlusCircle size={13} /> {addLabel}</>
+              )}
+            </button>
+          )}
         </div>
       </div>
     </div>

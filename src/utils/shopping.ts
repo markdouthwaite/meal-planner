@@ -20,13 +20,17 @@ export function aggregateShoppingList(
 ): AggregatedItem[] {
   const map = new Map<string, { name: string; quantity: number; unit: string }>();
 
-  for (const planRecipe of plan.recipes) {
-    const recipe = recipes.find(r => r.id === planRecipe.recipe_id);
+  for (const slot of plan.slots) {
+    // Only cook-mode slots add to the shopping list. Leftovers, eat-out and
+    // skip contribute nothing — the cook slot's servings_override should be
+    // doubled (via "cook double") to cover any leftover days.
+    if (slot.mode !== 'cook' || !slot.recipe_id) continue;
+    const recipe = recipes.find(r => r.id === slot.recipe_id);
     if (!recipe) continue;
 
     const scale =
-      planRecipe.servings_override != null
-        ? planRecipe.servings_override / recipe.servings
+      slot.servings_override != null
+        ? slot.servings_override / recipe.servings
         : 1;
 
     for (const ing of recipe.ingredients) {

@@ -14,11 +14,14 @@ interface RecipeDetailProps {
   onEdit?: () => void;
   onDelete?: () => void;
   inPlan: boolean;
-  onAddToPlan: () => void;
+  /** When omitted, the "Add to Plan" CTA is hidden (browse-library mode). */
+  onAddToPlan?: () => void;
+  /** Label for the primary CTA when adding (e.g. "Add to Plan", "Choose"). */
+  addLabel?: string;
 }
 
 export function RecipeDetail({
-  recipe, open, onClose, onEdit, onDelete, inPlan, onAddToPlan,
+  recipe, open, onClose, onEdit, onDelete, inPlan, onAddToPlan, addLabel = 'Add to Plan',
 }: RecipeDetailProps) {
   const [tab, setTab] = useState<'ingredients' | 'method'>('ingredients');
   const isMobile = useIsMobile();
@@ -173,17 +176,19 @@ export function RecipeDetail({
               <Edit2 size={15} /> Edit
             </button>
           )}
-          <button
-            onClick={() => { if (!inPlan) { onAddToPlan(); onClose(); } }}
-            disabled={inPlan}
-            className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-colors min-h-[44px] ${
-              inPlan
-                ? 'bg-brand-50 text-brand-600 cursor-default'
-                : 'bg-brand-600 text-white hover:bg-brand-700'
-            }`}
-          >
-            {inPlan ? 'Already in Plan' : 'Add to Plan'}
-          </button>
+          {onAddToPlan && (
+            <button
+              onClick={() => { if (!inPlan) { onAddToPlan(); onClose(); } }}
+              disabled={inPlan}
+              className={`flex-1 py-3 rounded-xl text-sm font-semibold transition-colors min-h-[44px] ${
+                inPlan
+                  ? 'bg-brand-50 text-brand-600 cursor-default'
+                  : 'bg-brand-600 text-white hover:bg-brand-700'
+              }`}
+            >
+              {inPlan ? 'Already in Plan' : addLabel}
+            </button>
+          )}
         </div>
       </div>
     </Modal>

@@ -20,15 +20,15 @@ export function BottomNav({ onOpenShopping }: BottomNavProps) {
   }, [currentPlan, recipes, shoppingItems, removedRecipeItems]);
 
   const navTabs = [
-    { to: '/recipes', label: 'Recipes', icon: BookOpen },
     { to: '/plan',    label: 'Plan',    icon: CalendarDays },
+    { to: '/recipes', label: 'Recipes', icon: BookOpen },
   ];
 
   return (
     <nav className="sm:hidden fixed bottom-0 inset-x-0 z-30 bg-white border-t border-gray-100 safe-area-inset-bottom">
       <div className="flex">
         {navTabs.map(({ to, label, icon: Icon }) => {
-          const active = pathname === to || (pathname === '/' && to === '/recipes');
+          const active = pathname === to || (pathname === '/' && to === '/plan');
           return (
             <Link
               key={to}
