@@ -1,8 +1,9 @@
-import { ShoppingCart } from 'lucide-react';
+import { LogOut, ShoppingCart } from 'lucide-react';
 import { useAppState } from '../../store/AppContext';
 import { useMemo } from 'react';
 import { aggregateShoppingList } from '../../utils/shopping';
 import { Link, useLocation } from 'react-router-dom';
+import { useAuthApi } from '../../auth/context';
 
 interface TopBarProps {
   onOpenShopping: () => void;
@@ -13,6 +14,7 @@ interface TopBarProps {
 export function TopBar({ onOpenShopping, shoppingVisible = false }: TopBarProps) {
   const { currentPlan, recipes, shoppingItems, removedRecipeItems } = useAppState();
   const { pathname } = useLocation();
+  const { signOut } = useAuthApi();
 
   const totalCount = useMemo(() => {
     const agg = aggregateShoppingList(currentPlan, recipes);
@@ -27,17 +29,17 @@ export function TopBar({ onOpenShopping, shoppingVisible = false }: TopBarProps)
   ];
 
   return (
-    <header className="bg-white border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between shrink-0 z-30">
+    <header className="bg-white/80 backdrop-blur-xl border-b border-gray-100 px-4 sm:px-6 h-14 flex items-center justify-between shrink-0 z-30 supports-[backdrop-filter]:bg-white/70">
       {/* Logo */}
       <div className="flex items-center gap-2 min-w-[140px]">
-        <div className="w-8 h-8 rounded-xl bg-brand-600 flex items-center justify-center flex-shrink-0">
+        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-500 to-brand-700 flex items-center justify-center flex-shrink-0 shadow-sm shadow-brand-600/20">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 2L2 7l10 5 10-5-10-5z"/>
             <path d="M2 17l10 5 10-5"/>
             <path d="M2 12l10 5 10-5"/>
           </svg>
         </div>
-        <span className="font-bold text-gray-900 text-sm hidden sm:block leading-tight">
+        <span className="font-bold text-gray-900 text-sm hidden sm:block leading-tight tracking-tight">
           Family<br />
           <span className="text-brand-600">Meal Planner</span>
         </span>
@@ -63,8 +65,8 @@ export function TopBar({ onOpenShopping, shoppingVisible = false }: TopBarProps)
         })}
       </nav>
 
-      {/* Right side: shopping cart (hidden on desktop when panel is always visible) */}
-      <div className="min-w-[140px] flex justify-end">
+      {/* Right side */}
+      <div className="min-w-[140px] flex justify-end items-center gap-1">
         {!shoppingVisible && (
           <button
             onClick={onOpenShopping}
@@ -80,11 +82,19 @@ export function TopBar({ onOpenShopping, shoppingVisible = false }: TopBarProps)
           </button>
         )}
         {shoppingVisible && (
-          <div className="flex items-center gap-2 text-xs text-gray-400">
+          <div className="flex items-center gap-2 text-xs text-gray-400 mr-2">
             <ShoppingCart size={16} />
             <span className="font-medium">{totalCount} item{totalCount !== 1 ? 's' : ''}</span>
           </div>
         )}
+        <button
+          onClick={signOut}
+          className="p-2.5 rounded-xl text-gray-400 hover:bg-gray-50 hover:text-gray-700 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+          aria-label="Lock app"
+          title="Lock"
+        >
+          <LogOut size={18} />
+        </button>
       </div>
     </header>
   );

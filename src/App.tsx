@@ -7,6 +7,7 @@ import { RecipesPage } from './components/recipes/RecipesPage';
 import { PlanPage } from './components/plan/PlanPage';
 import { ShoppingList } from './components/shopping/ShoppingList';
 import { useIsMobile } from './utils/useIsMobile';
+import { AuthGate } from './auth/AuthGate';
 
 function AppShell() {
   const [shoppingOpen, setShoppingOpen] = useState(false);
@@ -52,10 +53,12 @@ function AppShell() {
 
 export default function App() {
   return (
-    <AppProvider>
-      <HashRouter>
-        <AppShell />
-      </HashRouter>
-    </AppProvider>
+    <AuthGate>
+      <AppProvider>
+        <HashRouter>
+          <AppShell />
+        </HashRouter>
+      </AppProvider>
+    </AuthGate>
   );
 }
