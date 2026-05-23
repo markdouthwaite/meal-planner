@@ -1,25 +1,24 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import type { Recipe, MealPlan, ShoppingItem, PlanRecipe } from '../types';
-import { getWeekStart, generateId } from '../utils/helpers';
+import type { Recipe, MealPlan, ShoppingItem, PlanSlot, WeekDay } from '../types';
+import { getWeekStart, generateId, WEEK_DAYS } from '../utils/helpers';
 import { SEED_RECIPES } from '../utils/seedData';
 
 interface AppState {
   recipes: Recipe[];
   currentPlan: MealPlan;
-  shoppingItems: ShoppingItem[]; // manually added + removed state
-  removedRecipeItems: Set<string>; // keys of removed auto-generated items
-  recipeItemQuantityOverrides: Record<string, number>; // user-set quantities for aggregated items
-  seenSeedIds: string[]; // IDs of seed recipes already shown to this user
+  shoppingItems: ShoppingItem[];
+  removedRecipeItems: Set<string>;
+  recipeItemQuantityOverrides: Record<string, number>;
+  seenSeedIds: string[];
 }
 
 type Action =
   | { type: 'ADD_RECIPE'; recipe: Recipe }
   | { type: 'UPDATE_RECIPE'; recipe: Recipe }
   | { type: 'DELETE_RECIPE'; id: string }
-  | { type: 'ADD_TO_PLAN'; recipeId: string }
-  | { type: 'REMOVE_FROM_PLAN'; recipeId: string }
+  | { type: 'SET_SLOT'; slot: PlanSlot }
+  | { type: 'CLEAR_SLOT'; day: WeekDay; meal: 'dinner' }
   | { type: 'CLEAR_PLAN' }
-  | { type: 'SET_SERVINGS_OVERRIDE'; recipeId: string; servings: number }
   | { type: 'ADD_SHOPPING_ITEM'; item: ShoppingItem }
   | { type: 'TOGGLE_SHOPPING_ITEM'; id: string }
   | { type: 'REMOVE_SHOPPING_ITEM'; id: string }
@@ -34,8 +33,35 @@ function getDefaultPlan(): MealPlan {
   return {
     id: generateId(),
     week_start: getWeekStart(new Date()).toISOString().split('T')[0],
-    recipes: [],
+    slots: [],
     status: 'planning',
+  };
+}
+
+/**
+ * Convert a pre-slot-model plan (which had `recipes: PlanRecipe[]`) into the
+ * new slot-based shape. Distributes one recipe per day starting Monday so the
+ * user can re-arrange from there. Any recipes beyond 7 are dropped — they
+ * predate the day model and can be re-added manually.
+ */
+function migratePlan(raw: unknown): MealPlan {
+  const plan = raw as Partial<MealPlan> & { recipes?: { recipe_id: string; servings_override: number | null }[] };
+  if (Array.isArray(plan.slots)) {
+    return plan as MealPlan;
+  }
+  const oldRecipes = Array.isArray(plan.recipes) ? plan.recipes : [];
+  const slots: PlanSlot[] = oldRecipes.slice(0, WEEK_DAYS.length).map((pr, i) => ({
+    day: WEEK_DAYS[i],
+    meal: 'dinner',
+    mode: 'cook',
+    recipe_id: pr.recipe_id,
+    servings_override: pr.servings_override ?? null,
+  }));
+  return {
+    id: plan.id ?? generateId(),
+    week_start: plan.week_start ?? getWeekStart(new Date()).toISOString().split('T')[0],
+    slots,
+    status: plan.status ?? 'planning',
   };
 }
 
@@ -47,6 +73,15 @@ const initialState: AppState = {
   recipeItemQuantityOverrides: {},
   seenSeedIds: [],
 };
+
+/** Upsert a slot keyed by (day, meal). */
+function upsertSlot(slots: PlanSlot[], next: PlanSlot): PlanSlot[] {
+  const idx = slots.findIndex(s => s.day === next.day && s.meal === next.meal);
+  if (idx === -1) return [...slots, next];
+  const copy = slots.slice();
+  copy[idx] = next;
+  return copy;
+}
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -65,49 +100,44 @@ function reducer(state: AppState, action: Action): AppState {
         recipes: state.recipes.filter(r => r.id !== action.id),
         currentPlan: {
           ...state.currentPlan,
-          recipes: state.currentPlan.recipes.filter(pr => pr.recipe_id !== action.id),
+          // Clear the recipe from any slots that referenced it, and turn any
+          // leftover slots that pointed at those cook-slots back into empty.
+          slots: state.currentPlan.slots
+            .filter(s => s.recipe_id !== action.id)
+            .map(s => {
+              if (s.mode !== 'leftovers') return s;
+              const sourceStillExists = state.currentPlan.slots.some(
+                src => src.day === s.leftovers_of && src.recipe_id && src.recipe_id !== action.id,
+              );
+              return sourceStillExists ? s : { ...s, mode: 'cook' as const, recipe_id: undefined, leftovers_of: undefined };
+            }),
         },
       };
 
-    case 'ADD_TO_PLAN': {
-      const alreadyIn = state.currentPlan.recipes.some(pr => pr.recipe_id === action.recipeId);
-      if (alreadyIn) return state;
-      const planRecipe: PlanRecipe = { recipe_id: action.recipeId, servings_override: null };
+    case 'SET_SLOT':
       return {
         ...state,
         currentPlan: {
           ...state.currentPlan,
-          recipes: [...state.currentPlan.recipes, planRecipe],
+          slots: upsertSlot(state.currentPlan.slots, action.slot),
         },
       };
-    }
 
-    case 'REMOVE_FROM_PLAN':
+    case 'CLEAR_SLOT':
       return {
         ...state,
         currentPlan: {
           ...state.currentPlan,
-          recipes: state.currentPlan.recipes.filter(pr => pr.recipe_id !== action.recipeId),
+          slots: state.currentPlan.slots.filter(
+            s => !(s.day === action.day && s.meal === action.meal),
+          ),
         },
       };
 
     case 'CLEAR_PLAN':
       return {
         ...state,
-        currentPlan: { ...state.currentPlan, recipes: [] },
-      };
-
-    case 'SET_SERVINGS_OVERRIDE':
-      return {
-        ...state,
-        currentPlan: {
-          ...state.currentPlan,
-          recipes: state.currentPlan.recipes.map(pr =>
-            pr.recipe_id === action.recipeId
-              ? { ...pr, servings_override: action.servings }
-              : pr
-          ),
-        },
+        currentPlan: { ...state.currentPlan, slots: [] },
       };
 
     case 'ADD_SHOPPING_ITEM':
@@ -188,10 +218,6 @@ const STORAGE_KEY = 'meal-planner-state';
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  // Load from localStorage on mount, then sync any seed recipes the user
-  // hasn't seen yet (first-time users see all; returning users see only the
-  // ones added in deploys since their last visit; deleted seeds stay deleted
-  // because their IDs remain in seenSeedIds).
   useEffect(() => {
     let loaded: AppState = initialState;
     try {
@@ -201,6 +227,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         parsed.removedRecipeItems = new Set(parsed.removedRecipeItems ?? []);
         parsed.recipeItemQuantityOverrides = parsed.recipeItemQuantityOverrides ?? {};
         parsed.seenSeedIds = parsed.seenSeedIds ?? [];
+        parsed.currentPlan = migratePlan(parsed.currentPlan ?? {});
         loaded = parsed;
       }
     } catch {
@@ -208,15 +235,10 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     }
 
     const seenIds = new Set(loaded.seenSeedIds);
-    // Also dedupe by title — pre-migration users have the old seeds stored
-    // with random IDs, so without this they'd get duplicates the first time
-    // they hit this build.
     const existingTitles = new Set(loaded.recipes.map(r => r.title.toLowerCase()));
     const seedsToAdd = SEED_RECIPES.filter(s =>
       !seenIds.has(s.id) && !existingTitles.has(s.title.toLowerCase()),
     );
-    // After this sync, every current seed is considered "seen" — both those
-    // we just added and those skipped because the title already existed.
     const allCurrentSeedIds = SEED_RECIPES.map(s => s.id);
     const needsSeenUpdate = allCurrentSeedIds.some(id => !seenIds.has(id));
     const synced: AppState = (seedsToAdd.length === 0 && !needsSeenUpdate)
@@ -230,7 +252,6 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'LOAD_STATE', state: synced });
   }, []);
 
-  // Persist to localStorage on change
   useEffect(() => {
     const serialisable = {
       ...state,

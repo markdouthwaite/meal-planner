@@ -24,8 +24,8 @@ export function TopBar({ onOpenShopping, shoppingVisible = false }: TopBarProps)
   }, [currentPlan, recipes, shoppingItems, removedRecipeItems]);
 
   const navLinks = [
-    { to: '/recipes', label: 'Recipes' },
     { to: '/plan', label: 'Plan' },
+    { to: '/recipes', label: 'Recipes' },
   ];
 
   return (
