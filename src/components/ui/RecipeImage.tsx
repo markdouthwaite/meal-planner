@@ -120,7 +120,7 @@ export function RecipeImage({ src, alt, title, mealTypes, className = '' }: Reci
       />
       <span
         aria-hidden
-        className="relative text-5xl sm:text-6xl drop-shadow-sm select-none"
+        className="relative text-6xl sm:text-7xl drop-shadow-sm select-none leading-none"
         style={{ filter: 'drop-shadow(0 2px 6px rgba(0,0,0,0.12))' }}
       >
         {emoji}

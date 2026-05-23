@@ -21,7 +21,7 @@ export function RecipeCard({ recipe, inPlan, onAddToPlan, onClick }: RecipeCardP
         alt={recipe.title}
         title={recipe.title}
         mealTypes={recipe.meal_type}
-        className="w-full h-40 sm:h-44"
+        className="w-full aspect-[16/9] sm:aspect-auto sm:h-44"
       />
 
       <div className="p-4 flex flex-col flex-1">

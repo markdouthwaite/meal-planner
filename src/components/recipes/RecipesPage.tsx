@@ -134,7 +134,7 @@ export function RecipesPage({ mode = 'full' }: RecipesPageProps) {
       </div>
 
       {/* Grid */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+      <div className="flex-1 overflow-y-auto p-3 sm:p-6">
         {filtered.length === 0 ? (
           <EmptyState
             icon={<BookOpen size={56} />}
