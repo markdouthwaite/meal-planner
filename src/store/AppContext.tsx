@@ -8,6 +8,7 @@ interface AppState {
   currentPlan: MealPlan;
   shoppingItems: ShoppingItem[]; // manually added + removed state
   removedRecipeItems: Set<string>; // keys of removed auto-generated items
+  recipeItemQuantityOverrides: Record<string, number>; // user-set quantities for aggregated items
 }
 
 type Action =
@@ -16,11 +17,16 @@ type Action =
   | { type: 'DELETE_RECIPE'; id: string }
   | { type: 'ADD_TO_PLAN'; recipeId: string }
   | { type: 'REMOVE_FROM_PLAN'; recipeId: string }
+  | { type: 'CLEAR_PLAN' }
   | { type: 'SET_SERVINGS_OVERRIDE'; recipeId: string; servings: number }
   | { type: 'ADD_SHOPPING_ITEM'; item: ShoppingItem }
   | { type: 'TOGGLE_SHOPPING_ITEM'; id: string }
   | { type: 'REMOVE_SHOPPING_ITEM'; id: string }
+  | { type: 'SET_MANUAL_ITEM_QUANTITY'; id: string; quantity: number }
   | { type: 'TOGGLE_REMOVED_RECIPE_ITEM'; key: string }
+  | { type: 'SET_RECIPE_ITEM_QUANTITY'; key: string; quantity: number }
+  | { type: 'RESET_RECIPE_ITEM_QUANTITY'; key: string }
+  | { type: 'CLEAR_SHOPPING_LIST' }
   | { type: 'LOAD_STATE'; state: AppState };
 
 function getDefaultPlan(): MealPlan {
@@ -37,6 +43,7 @@ const initialState: AppState = {
   currentPlan: getDefaultPlan(),
   shoppingItems: [],
   removedRecipeItems: new Set(),
+  recipeItemQuantityOverrides: {},
 };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -82,6 +89,12 @@ function reducer(state: AppState, action: Action): AppState {
         },
       };
 
+    case 'CLEAR_PLAN':
+      return {
+        ...state,
+        currentPlan: { ...state.currentPlan, recipes: [] },
+      };
+
     case 'SET_SERVINGS_OVERRIDE':
       return {
         ...state,
@@ -122,6 +135,37 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, removedRecipeItems: next };
     }
 
+    case 'SET_MANUAL_ITEM_QUANTITY':
+      return {
+        ...state,
+        shoppingItems: state.shoppingItems.map(i =>
+          i.id === action.id ? { ...i, quantity: action.quantity } : i
+        ),
+      };
+
+    case 'SET_RECIPE_ITEM_QUANTITY':
+      return {
+        ...state,
+        recipeItemQuantityOverrides: {
+          ...state.recipeItemQuantityOverrides,
+          [action.key]: action.quantity,
+        },
+      };
+
+    case 'RESET_RECIPE_ITEM_QUANTITY': {
+      const next = { ...state.recipeItemQuantityOverrides };
+      delete next[action.key];
+      return { ...state, recipeItemQuantityOverrides: next };
+    }
+
+    case 'CLEAR_SHOPPING_LIST':
+      return {
+        ...state,
+        shoppingItems: [],
+        removedRecipeItems: new Set(),
+        recipeItemQuantityOverrides: {},
+      };
+
     case 'LOAD_STATE':
       return action.state;
 
@@ -148,8 +192,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        // Convert removedRecipeItems back to a Set
+        // Convert removedRecipeItems back to a Set; default new fields for older saves.
         parsed.removedRecipeItems = new Set(parsed.removedRecipeItems ?? []);
+        parsed.recipeItemQuantityOverrides = parsed.recipeItemQuantityOverrides ?? {};
         dispatch({ type: 'LOAD_STATE', state: parsed });
       } else {
         // First-time load: seed with example recipes
