@@ -9,6 +9,7 @@ interface AppState {
   shoppingItems: ShoppingItem[]; // manually added + removed state
   removedRecipeItems: Set<string>; // keys of removed auto-generated items
   recipeItemQuantityOverrides: Record<string, number>; // user-set quantities for aggregated items
+  seenSeedIds: string[]; // IDs of seed recipes already shown to this user
 }
 
 type Action =
@@ -44,6 +45,7 @@ const initialState: AppState = {
   shoppingItems: [],
   removedRecipeItems: new Set(),
   recipeItemQuantityOverrides: {},
+  seenSeedIds: [],
 };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -186,25 +188,46 @@ const STORAGE_KEY = 'meal-planner-state';
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, initialState);
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount, then sync any seed recipes the user
+  // hasn't seen yet (first-time users see all; returning users see only the
+  // ones added in deploys since their last visit; deleted seeds stay deleted
+  // because their IDs remain in seenSeedIds).
   useEffect(() => {
+    let loaded: AppState = initialState;
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw);
-        // Convert removedRecipeItems back to a Set; default new fields for older saves.
         parsed.removedRecipeItems = new Set(parsed.removedRecipeItems ?? []);
         parsed.recipeItemQuantityOverrides = parsed.recipeItemQuantityOverrides ?? {};
-        dispatch({ type: 'LOAD_STATE', state: parsed });
-      } else {
-        // First-time load: seed with example recipes
-        for (const recipe of SEED_RECIPES) {
-          dispatch({ type: 'ADD_RECIPE', recipe });
-        }
+        parsed.seenSeedIds = parsed.seenSeedIds ?? [];
+        loaded = parsed;
       }
     } catch {
-      // ignore
+      // ignore — fall through with initialState
     }
+
+    const seenIds = new Set(loaded.seenSeedIds);
+    // Also dedupe by title — pre-migration users have the old seeds stored
+    // with random IDs, so without this they'd get duplicates the first time
+    // they hit this build.
+    const existingTitles = new Set(loaded.recipes.map(r => r.title.toLowerCase()));
+    const seedsToAdd = SEED_RECIPES.filter(s =>
+      !seenIds.has(s.id) && !existingTitles.has(s.title.toLowerCase()),
+    );
+    // After this sync, every current seed is considered "seen" — both those
+    // we just added and those skipped because the title already existed.
+    const allCurrentSeedIds = SEED_RECIPES.map(s => s.id);
+    const needsSeenUpdate = allCurrentSeedIds.some(id => !seenIds.has(id));
+    const synced: AppState = (seedsToAdd.length === 0 && !needsSeenUpdate)
+      ? loaded
+      : {
+          ...loaded,
+          recipes: [...loaded.recipes, ...seedsToAdd],
+          seenSeedIds: Array.from(new Set([...loaded.seenSeedIds, ...allCurrentSeedIds])),
+        };
+
+    dispatch({ type: 'LOAD_STATE', state: synced });
   }, []);
 
   // Persist to localStorage on change
