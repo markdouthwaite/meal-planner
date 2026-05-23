@@ -51,3 +51,4 @@ Copy `.env.example` to `.env.local` and fill in your Supabase credentials to con
 - Explore how agents could be used to accelerate this
 - Explore e.g. email / better reminders integration
 - Improved filters and discoverability
+- Suggested menus / groupings
