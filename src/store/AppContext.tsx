@@ -43,11 +43,16 @@ function getDefaultPlan(): MealPlan {
  * new slot-based shape. Distributes one recipe per day starting Monday so the
  * user can re-arrange from there. Any recipes beyond 7 are dropped — they
  * predate the day model and can be re-added manually.
+ *
+ * Also re-anchors `week_start` to today's Monday. Phase 1 only stores a
+ * single plan, so any saved week_start is treated as "the current plan,
+ * relabeled to this week" rather than a stale historical plan.
  */
 function migratePlan(raw: unknown): MealPlan {
   const plan = raw as Partial<MealPlan> & { recipes?: { recipe_id: string; servings_override: number | null }[] };
+  const thisMonday = getWeekStart(new Date()).toISOString().split('T')[0];
   if (Array.isArray(plan.slots)) {
-    return plan as MealPlan;
+    return { ...(plan as MealPlan), week_start: thisMonday };
   }
   const oldRecipes = Array.isArray(plan.recipes) ? plan.recipes : [];
   const slots: PlanSlot[] = oldRecipes.slice(0, WEEK_DAYS.length).map((pr, i) => ({
@@ -59,7 +64,7 @@ function migratePlan(raw: unknown): MealPlan {
   }));
   return {
     id: plan.id ?? generateId(),
-    week_start: plan.week_start ?? getWeekStart(new Date()).toISOString().split('T')[0],
+    week_start: thisMonday,
     slots,
     status: plan.status ?? 'planning',
   };

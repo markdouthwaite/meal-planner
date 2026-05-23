@@ -1,13 +1,11 @@
 import { useState } from 'react';
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { useAppState, useAppDispatch } from '../../store/AppContext';
 import { SlotCard } from './SlotCard';
 import { SlotActions } from './SlotActions';
 import { RecipesPage } from '../recipes/RecipesPage';
 import { Modal } from '../ui/Modal';
-import { EmptyState } from '../ui/EmptyState';
 import {
-  formatWeekLabel, addWeeks, isCurrentWeek,
+  formatWeekLabel,
   WEEK_DAYS, WEEK_DAY_LABELS,
 } from '../../utils/helpers';
 import { useIsMobile } from '../../utils/useIsMobile';
@@ -18,20 +16,15 @@ const MEAL = 'dinner' as const;
 export function PlanPage() {
   const { currentPlan, recipes } = useAppState();
   const dispatch = useAppDispatch();
-  const [weekOffset, setWeekOffset] = useState(0);
   const [pickerForDay, setPickerForDay] = useState<WeekDay | null>(null);
   const [actionsForDay, setActionsForDay] = useState<WeekDay | null>(null);
   const isMobile = useIsMobile();
 
-  const displayedWeek = addWeeks(currentPlan.week_start, weekOffset);
-  const isCurrent = isCurrentWeek(displayedWeek);
-
-  // Phase 1: we only track a single current plan. Showing it on the current
-  // week; for other weeks we present empty (the data model doesn't yet
-  // distinguish multiple weeks). Week-history is a future enhancement.
-  const slotsForWeek = isCurrent ? currentPlan.slots : [];
+  // Phase 1: a single plan, always treated as "this week" (the load logic
+  // re-anchors currentPlan.week_start to today's Monday). Multi-week storage +
+  // a week navigator are deferred to Phase 2.
   const slotByDay = new Map<WeekDay, PlanSlot>();
-  for (const s of slotsForWeek) {
+  for (const s of currentPlan.slots) {
     if (s.meal === MEAL) slotByDay.set(s.day, s);
   }
 
@@ -44,9 +37,6 @@ export function PlanPage() {
   function handleSlotTap(day: WeekDay) {
     const slot = slotByDay.get(day);
     if (!slot) {
-      // Empty slot → recipe picker (most common action). Other modes (eating
-      // out, skip, leftovers) are available via the actions sheet *after*
-      // picking, or in Phase 2 via an explicit choice screen.
       setPickerForDay(day);
     } else {
       setActionsForDay(day);
@@ -56,7 +46,6 @@ export function PlanPage() {
   function handlePickRecipe(recipeId: string) {
     const day = pickerForDay;
     if (!day) return;
-    // Preserve any servings_override the user had set; otherwise default.
     const existing = slotByDay.get(day);
     dispatch({
       type: 'SET_SLOT',
@@ -97,82 +86,58 @@ export function PlanPage() {
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* Sticky week header */}
+      {/* Sticky week header. Week navigation is deferred to Phase 2 (when
+          multi-week storage exists); for now we only ever show the current
+          week, so prev/next chevrons would just lead to empty states. */}
       <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sticky top-0 z-10">
-        <div className="flex items-center justify-between">
-          <button
-            onClick={() => setWeekOffset(o => o - 1)}
-            className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
-            aria-label="Previous week"
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <div className="text-center">
-            <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
-              {isCurrent ? 'This week' : weekOffset > 0 ? 'Upcoming' : 'Past'}
-            </p>
-            <p className="text-sm font-semibold text-gray-800">
-              Week of {formatWeekLabel(displayedWeek)}
-            </p>
-            <p className="text-[11px] text-gray-400 mt-0.5">
-              {filledCount} of {WEEK_DAYS.length} planned
-            </p>
-          </div>
-          <button
-            onClick={() => setWeekOffset(o => o + 1)}
-            className="p-2 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
-            aria-label="Next week"
-          >
-            <ChevronRight size={18} />
-          </button>
+        <div className="text-center">
+          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
+            This week
+          </p>
+          <p className="text-sm font-semibold text-gray-800">
+            Week of {formatWeekLabel(currentPlan.week_start)}
+          </p>
+          <p className="text-[11px] text-gray-400 mt-0.5">
+            {filledCount} of {WEEK_DAYS.length} planned
+          </p>
         </div>
       </div>
 
       {/* Day list */}
       <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 max-w-3xl w-full mx-auto">
-        {!isCurrent ? (
-          <EmptyState
-            icon={<CalendarDays size={56} />}
-            title={weekOffset > 0 ? 'Future weeks coming soon' : 'Past weeks not stored yet'}
-            description="Right now the planner only holds the current week. Multi-week history is a future enhancement."
-          />
-        ) : (
-          <>
-            {WEEK_DAYS.map(day => {
-              const slot = slotByDay.get(day);
-              const recipe = slot?.recipe_id ? recipeById.get(slot.recipe_id) : undefined;
-              const leftoverSource = (() => {
-                if (slot?.mode !== 'leftovers' || !slot.leftovers_of) return undefined;
-                const src = slotByDay.get(slot.leftovers_of);
-                if (!src?.recipe_id) return undefined;
-                const srcRecipe = recipeById.get(src.recipe_id);
-                if (!srcRecipe) return undefined;
-                return { recipe: srcRecipe, day: slot.leftovers_of };
-              })();
-              return (
-                <SlotCard
-                  key={day}
-                  day={day}
-                  slot={slot}
-                  recipe={recipe}
-                  leftoverSource={leftoverSource}
-                  isToday={today === day}
-                  onTap={() => handleSlotTap(day)}
-                />
-              );
-            })}
+        {WEEK_DAYS.map(day => {
+          const slot = slotByDay.get(day);
+          const recipe = slot?.recipe_id ? recipeById.get(slot.recipe_id) : undefined;
+          const leftoverSource = (() => {
+            if (slot?.mode !== 'leftovers' || !slot.leftovers_of) return undefined;
+            const src = slotByDay.get(slot.leftovers_of);
+            if (!src?.recipe_id) return undefined;
+            const srcRecipe = recipeById.get(src.recipe_id);
+            if (!srcRecipe) return undefined;
+            return { recipe: srcRecipe, day: slot.leftovers_of };
+          })();
+          return (
+            <SlotCard
+              key={day}
+              day={day}
+              slot={slot}
+              recipe={recipe}
+              leftoverSource={leftoverSource}
+              isToday={today === day}
+              onTap={() => handleSlotTap(day)}
+            />
+          );
+        })}
 
-            {filledCount > 0 && (
-              <div className="pt-2 flex justify-center">
-                <button
-                  onClick={handleClearPlan}
-                  className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors underline-offset-2 hover:underline px-3 py-2"
-                >
-                  Clear plan
-                </button>
-              </div>
-            )}
-          </>
+        {filledCount > 0 && (
+          <div className="pt-2 flex justify-center">
+            <button
+              onClick={handleClearPlan}
+              className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors underline-offset-2 hover:underline px-3 py-2"
+            >
+              Clear plan
+            </button>
+          </div>
         )}
       </div>
 
