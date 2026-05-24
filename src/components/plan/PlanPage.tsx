@@ -178,43 +178,47 @@ export function PlanPage() {
         </div>
       </div>
 
-      {/* Day list */}
-      <div className="flex-1 overflow-y-auto p-3 sm:p-6 space-y-3 max-w-3xl w-full mx-auto">
-        {windowDates.map(date => {
-          const slot = slotByDate.get(date);
-          const recipe = slot?.recipe_id ? recipeById.get(slot.recipe_id) : undefined;
-          const leftoverSource = (() => {
-            if (slot?.mode !== 'leftovers' || !slot.leftovers_of) return undefined;
-            const src = slotByDate.get(slot.leftovers_of);
-            if (!src?.recipe_id) return undefined;
-            const srcRecipe = recipeById.get(src.recipe_id);
-            if (!srcRecipe) return undefined;
-            return { recipe: srcRecipe, date: slot.leftovers_of };
-          })();
-          return (
-            <SlotCard
-              key={date}
-              date={date}
-              slot={slot}
-              recipe={recipe}
-              leftoverSource={leftoverSource}
-              isToday={date === today}
-              onTap={() => handleSlotTap(date)}
-              onQuickAction={(action) => handleQuickAction(date, action)}
-            />
-          );
-        })}
+      {/* Day list. Scroll container is full-width; max-w + centering is on
+          the inner content so the layout constraint doesn't fight with
+          overflow behaviour. */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-3xl mx-auto p-3 sm:p-6 space-y-3">
+          {windowDates.map(date => {
+            const slot = slotByDate.get(date);
+            const recipe = slot?.recipe_id ? recipeById.get(slot.recipe_id) : undefined;
+            const leftoverSource = (() => {
+              if (slot?.mode !== 'leftovers' || !slot.leftovers_of) return undefined;
+              const src = slotByDate.get(slot.leftovers_of);
+              if (!src?.recipe_id) return undefined;
+              const srcRecipe = recipeById.get(src.recipe_id);
+              if (!srcRecipe) return undefined;
+              return { recipe: srcRecipe, date: slot.leftovers_of };
+            })();
+            return (
+              <SlotCard
+                key={date}
+                date={date}
+                slot={slot}
+                recipe={recipe}
+                leftoverSource={leftoverSource}
+                isToday={date === today}
+                onTap={() => handleSlotTap(date)}
+                onQuickAction={(action) => handleQuickAction(date, action)}
+              />
+            );
+          })}
 
-        {currentPlan.slots.length > 0 && (
-          <div className="pt-2 flex justify-center">
-            <button
-              onClick={handleClearPlan}
-              className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors underline-offset-2 hover:underline px-3 py-2"
-            >
-              Clear your plan
-            </button>
-          </div>
-        )}
+          {currentPlan.slots.length > 0 && (
+            <div className="pt-2 flex justify-center">
+              <button
+                onClick={handleClearPlan}
+                className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors underline-offset-2 hover:underline px-3 py-2"
+              >
+                Clear your plan
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Recipe picker for a slot */}
