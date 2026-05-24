@@ -111,7 +111,7 @@ export function SlotActions({ open, onClose, date, slot, recipe, cookSlots, onPi
   if (!slot) {
     return (
       <Sheet onClose={onClose}>
-        <Header title={dayLabel} subtitle="What shall we have?" onClose={onClose} />
+        <Header title={dayLabel} subtitle="Add a meal" onClose={onClose} />
         <div className="px-4 pb-safe pt-1">
           <ActionRow
             icon={<BookOpen size={16} />}

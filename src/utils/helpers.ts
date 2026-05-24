@@ -30,6 +30,18 @@ export function getWeekStart(date: Date): Date {
   return d;
 }
 
+/**
+ * Format a Date as YYYY-MM-DD using its **local** components. Avoids the
+ * common `date.toISOString().split('T')[0]` pitfall, which silently converts
+ * to UTC and shifts the date for anyone whose local TZ differs from UTC.
+ */
+export function toLocalDateString(d: Date): string {
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+}
+
 export function formatWeekLabel(weekStart: string): string {
   const date = new Date(weekStart + 'T00:00:00');
   return date.toLocaleDateString('en-GB', {
@@ -42,30 +54,27 @@ export function formatWeekLabel(weekStart: string): string {
 export function addWeeks(weekStart: string, n: number): string {
   const d = new Date(weekStart + 'T00:00:00');
   d.setDate(d.getDate() + n * 7);
-  return d.toISOString().split('T')[0];
+  return toLocalDateString(d);
 }
 
 export function isCurrentWeek(weekStart: string): boolean {
-  const current = getWeekStart(new Date()).toISOString().split('T')[0];
-  return weekStart === current;
+  return weekStart === toLocalDateString(getWeekStart(new Date()));
 }
 
 // ---------------------------------------------------------------------------
 // Date helpers (ISO YYYY-MM-DD strings, treated as local-tz dates)
 // ---------------------------------------------------------------------------
 
-/** Today as an ISO YYYY-MM-DD string (local time). */
+/** Today as an ISO YYYY-MM-DD string in the user's local timezone. */
 export function todayISO(): string {
-  const d = new Date();
-  d.setHours(0, 0, 0, 0);
-  return d.toISOString().split('T')[0];
+  return toLocalDateString(new Date());
 }
 
 /** Add `n` days to an ISO YYYY-MM-DD date, returning a new ISO string. */
 export function addDaysISO(iso: string, n: number): string {
   const d = new Date(iso + 'T00:00:00');
   d.setDate(d.getDate() + n);
-  return d.toISOString().split('T')[0];
+  return toLocalDateString(d);
 }
 
 /** Difference in days between two ISO dates (b - a). */

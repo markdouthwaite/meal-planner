@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import type { Recipe, MealPlan, ShoppingItem, PlanSlot } from '../types';
-import { getWeekStart, generateId, WEEK_DAYS } from '../utils/helpers';
+import { getWeekStart, generateId, toLocalDateString, WEEK_DAYS } from '../utils/helpers';
 import { SEED_RECIPES } from '../utils/seedData';
 
 interface AppState {
@@ -56,7 +56,7 @@ function migratePlan(raw: unknown): MealPlan {
     recipes?: { recipe_id: string; servings_override: number | null }[];
     slots?: (PlanSlot | { day?: string; date?: string; leftovers_of?: string; meal: 'dinner'; mode: PlanSlot['mode']; recipe_id?: string; servings_override: number | null; notes?: string })[];
   };
-  const thisMonday = getWeekStart(new Date()).toISOString().split('T')[0];
+  const thisMonday = toLocalDateString(getWeekStart(new Date()));
 
   // Helper: WeekDay key → ISO date for the current week.
   const wdToISO = (wd: string | undefined): string | undefined => {
@@ -65,7 +65,7 @@ function migratePlan(raw: unknown): MealPlan {
     if (idx === undefined) return undefined;
     const d = new Date(thisMonday + 'T00:00:00');
     d.setDate(d.getDate() + idx);
-    return d.toISOString().split('T')[0];
+    return toLocalDateString(d);
   };
 
   if (Array.isArray(plan.slots)) {
@@ -105,7 +105,7 @@ function migratePlan(raw: unknown): MealPlan {
     const d = new Date(thisMonday + 'T00:00:00');
     d.setDate(d.getDate() + i);
     return {
-      date: d.toISOString().split('T')[0],
+      date: toLocalDateString(d),
       meal: 'dinner',
       mode: 'cook',
       recipe_id: pr.recipe_id,
