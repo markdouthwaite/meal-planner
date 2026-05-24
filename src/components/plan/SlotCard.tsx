@@ -1,30 +1,25 @@
 import { ChevronRight, Plus, RotateCw, Utensils, X } from 'lucide-react';
-import type { PlanSlot, Recipe, WeekDay } from '../../types';
-import { WEEK_DAY_LABELS } from '../../utils/helpers';
+import type { PlanSlot, Recipe } from '../../types';
+import { formatDayStripe, formatDayLong } from '../../utils/helpers';
 import { RecipeImage } from '../ui/RecipeImage';
 
 interface SlotCardProps {
-  day: WeekDay;
+  date: string; // ISO YYYY-MM-DD
   slot: PlanSlot | undefined;
   recipe: Recipe | undefined;
   /** For leftover slots, the recipe being re-eaten (looked up via leftovers_of). */
-  leftoverSource?: { recipe: Recipe; day: WeekDay };
-  /** True if today's row, so we can highlight it. */
+  leftoverSource?: { recipe: Recipe; date: string };
+  /** True if this card is today's row, so we can highlight it. */
   isToday: boolean;
   onTap: () => void;
 }
 
 /**
  * One day's slot in the weekly plan. The whole card is one big tap target:
- * - empty → opens the recipe picker
+ * - empty → opens the slot chooser
  * - filled → opens the quick-actions sheet
- *
- * Visual states (cook / leftovers / out / skip / empty) share the same row
- * height so the week list doesn't jump when the user changes a mode.
  */
-export function SlotCard({ day, slot, recipe, leftoverSource, isToday, onTap }: SlotCardProps) {
-  const dayLabel = WEEK_DAY_LABELS[day];
-
+export function SlotCard({ date, slot, recipe, leftoverSource, isToday, onTap }: SlotCardProps) {
   // ---- empty ----
   if (!slot) {
     return (
@@ -35,7 +30,7 @@ export function SlotCard({ day, slot, recipe, leftoverSource, isToday, onTap }: 
         } shadow-card hover:shadow-card-hover transition-all overflow-hidden`}
       >
         <div className="flex items-stretch min-h-[80px]">
-          <DayStripe day={dayLabel} isToday={isToday} />
+          <DayStripe date={date} isToday={isToday} />
           <div className="flex-1 flex items-center justify-between px-4 py-3 text-gray-400 group-hover:text-brand-600 transition-colors">
             <span className="inline-flex items-center gap-2 text-sm font-medium">
               <Plus size={16} />
@@ -60,7 +55,7 @@ export function SlotCard({ day, slot, recipe, leftoverSource, isToday, onTap }: 
         } shadow-card hover:shadow-card-hover transition-all overflow-hidden`}
       >
         <div className="flex items-stretch min-h-[80px]">
-          <DayStripe day={dayLabel} isToday={isToday} />
+          <DayStripe date={date} isToday={isToday} />
           <div className="flex-1 flex items-center justify-between px-4 py-3">
             <span className="inline-flex items-center gap-2 text-sm font-medium text-gray-500">
               {icon}
@@ -77,7 +72,7 @@ export function SlotCard({ day, slot, recipe, leftoverSource, isToday, onTap }: 
   // ---- leftovers ----
   if (slot.mode === 'leftovers') {
     const sourceRecipe = leftoverSource?.recipe;
-    const sourceDay = leftoverSource ? WEEK_DAY_LABELS[leftoverSource.day] : undefined;
+    const sourceDay = leftoverSource ? formatDayLong(leftoverSource.date) : undefined;
     return (
       <button
         onClick={onTap}
@@ -86,7 +81,7 @@ export function SlotCard({ day, slot, recipe, leftoverSource, isToday, onTap }: 
         } shadow-card hover:shadow-card-hover transition-all overflow-hidden`}
       >
         <div className="flex items-stretch min-h-[80px]">
-          <DayStripe day={dayLabel} isToday={isToday} />
+          <DayStripe date={date} isToday={isToday} />
           <RecipeImage
             src={sourceRecipe?.image}
             alt={sourceRecipe?.title ?? 'Leftovers'}
@@ -102,7 +97,7 @@ export function SlotCard({ day, slot, recipe, leftoverSource, isToday, onTap }: 
                 {sourceDay && <span className="text-gray-400 font-normal normal-case tracking-normal">· from {sourceDay}</span>}
               </div>
               <p className="text-sm font-semibold text-gray-900 truncate">
-                {sourceRecipe?.title ?? 'Recipe missing'}
+                {sourceRecipe?.title ?? 'Source missing'}
               </p>
               {slot.notes && (
                 <p className="text-xs text-gray-400 truncate">{slot.notes}</p>
@@ -126,7 +121,7 @@ export function SlotCard({ day, slot, recipe, leftoverSource, isToday, onTap }: 
       } shadow-card hover:shadow-card-hover transition-all overflow-hidden`}
     >
       <div className="flex items-stretch min-h-[80px]">
-        <DayStripe day={dayLabel} isToday={isToday} />
+        <DayStripe date={date} isToday={isToday} />
         <RecipeImage
           src={recipe?.image}
           alt={recipe?.title ?? 'Recipe'}
@@ -158,16 +153,17 @@ export function SlotCard({ day, slot, recipe, leftoverSource, isToday, onTap }: 
   );
 }
 
-function DayStripe({ day, isToday }: { day: string; isToday: boolean }) {
+function DayStripe({ date, isToday }: { date: string; isToday: boolean }) {
+  const { weekday, day } = formatDayStripe(date);
   return (
     <div className={`w-20 flex-shrink-0 flex flex-col items-center justify-center px-2 py-3 ${
       isToday ? 'bg-brand-50 text-brand-700' : 'bg-gray-50 text-gray-500'
     }`}>
       <span className="text-[10px] font-semibold uppercase tracking-wider">
-        {isToday ? 'Today' : ''}
+        {isToday ? 'Today' : weekday}
       </span>
-      <span className={`text-sm font-bold ${isToday ? 'text-brand-700' : 'text-gray-700'}`}>
-        {day}
+      <span className={`text-base font-bold ${isToday ? 'text-brand-700' : 'text-gray-800'}`}>
+        {isToday ? weekday : day}
       </span>
     </div>
   );
