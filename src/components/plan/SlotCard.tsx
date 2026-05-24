@@ -34,7 +34,7 @@ export function SlotCard({ date, slot, recipe, leftoverSource, isToday, onTap }:
           <div className="flex-1 flex items-center justify-between px-4 py-3 text-gray-400 group-hover:text-brand-600 transition-colors">
             <span className="inline-flex items-center gap-2 text-sm font-medium">
               <Plus size={16} />
-              What shall we have?
+              Add a meal
             </span>
             <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
           </div>
