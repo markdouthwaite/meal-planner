@@ -23,7 +23,12 @@ function AppShell() {
 
       {/* Body: main content + optional desktop side panel */}
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 overflow-hidden pb-14 sm:pb-0">
+        {/* Reserve space for the fixed BottomNav. The nav grows by
+            env(safe-area-inset-bottom) on devices with a home indicator,
+            so a plain pb-14 (56px) wasn't enough — the nav was overlapping
+            the bottom of the scroll area and hiding the "Clear your plan"
+            button. */}
+        <main className="flex-1 overflow-hidden pb-[calc(3.5rem+env(safe-area-inset-bottom))] sm:pb-0">
           <div className="h-full overflow-hidden">
             <Routes>
               <Route path="/" element={<Navigate to="/plan" replace />} />
