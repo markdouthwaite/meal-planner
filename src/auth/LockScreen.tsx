@@ -99,10 +99,6 @@ export function LockScreen({ signIn }: LockScreenProps) {
         >
           Unlock
         </button>
-
-        <p className="text-[11px] text-gray-400 text-center mt-5 leading-relaxed">
-          This is a light gate to keep casual viewers out — not a security boundary.
-        </p>
       </form>
     </div>
   );
