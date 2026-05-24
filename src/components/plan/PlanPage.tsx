@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useState } from 'react';
 import { CalendarDays, ChevronDown } from 'lucide-react';
 import { useAppState, useAppDispatch } from '../../store/AppContext';
 import { SlotCard } from './SlotCard';
@@ -30,9 +30,6 @@ export function PlanPage() {
   const [storedStart, setStoredStart] = useState<string>(() => today);
   const windowStart = daysBetweenISO(today, storedStart) < 0 ? today : storedStart;
   const setWindowStart = setStoredStart;
-
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const dateInputRef = useRef<HTMLInputElement>(null);
 
   const windowEnd = addDaysISO(windowStart, WINDOW_DAYS - 1);
   const windowDates: string[] = Array.from({ length: WINDOW_DAYS }, (_, i) =>
@@ -108,25 +105,31 @@ export function PlanPage() {
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* Sticky header with window range + date-pick affordance */}
+      {/* Sticky header with window range + date-pick affordance. The native
+          date input is always mounted but visually invisible, layered over
+          the formatted label so taps land directly on the input (no JS
+          showPicker() gymnastics, which were unreliable across browsers). */}
       <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sticky top-0 z-10">
-        <div className="text-center relative">
+        <div className="text-center">
           <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
             Planning
           </p>
-          <button
-            onClick={() => {
-              setDatePickerOpen(true);
-              // Defer to next tick so the input is mounted before we focus it.
-              setTimeout(() => dateInputRef.current?.showPicker?.() ?? dateInputRef.current?.focus(), 0);
-            }}
-            className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 hover:text-brand-600 transition-colors"
-            aria-label="Change start date"
-          >
-            <CalendarDays size={14} className="text-gray-400" />
-            {formatDateRange(windowStart, windowEnd)}
-            <ChevronDown size={14} className="text-gray-400" />
-          </button>
+          <div className="relative inline-block">
+            <input
+              type="date"
+              value={windowStart}
+              min={minStart}
+              max={maxStart}
+              onChange={e => { if (e.target.value) setWindowStart(e.target.value); }}
+              aria-label="Change planning start date"
+              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+            />
+            <div className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 px-1">
+              <CalendarDays size={14} className="text-gray-400" />
+              {formatDateRange(windowStart, windowEnd)}
+              <ChevronDown size={14} className="text-gray-400" />
+            </div>
+          </div>
           <p className="text-[11px] text-gray-400 mt-0.5">
             {filledCount} of {WINDOW_DAYS} planned
             {windowStart !== today && (
@@ -138,21 +141,6 @@ export function PlanPage() {
               </button>
             )}
           </p>
-          {datePickerOpen && (
-            <input
-              ref={dateInputRef}
-              type="date"
-              value={windowStart}
-              min={minStart}
-              max={maxStart}
-              onChange={e => {
-                if (e.target.value) setWindowStart(e.target.value);
-              }}
-              onBlur={() => setDatePickerOpen(false)}
-              // Invisible — purely to host the native date picker UI.
-              className="absolute opacity-0 inset-0 pointer-events-none"
-            />
-          )}
         </div>
       </div>
 
