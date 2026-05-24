@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { CalendarDays, ChevronDown } from 'lucide-react';
 import { useAppState, useAppDispatch } from '../../store/AppContext';
-import { SlotCard } from './SlotCard';
+import { SlotCard, type QuickAction } from './SlotCard';
 import { SlotActions } from './SlotActions';
 import { RecipesPage } from '../recipes/RecipesPage';
+import { RecipeDetail } from '../recipes/RecipeDetail';
 import { Modal } from '../ui/Modal';
+import type { Recipe } from '../../types';
 import {
   todayISO, addDaysISO, formatDateRange, formatDayLong, daysBetweenISO,
 } from '../../utils/helpers';
@@ -20,6 +22,8 @@ export function PlanPage() {
   const dispatch = useAppDispatch();
   const [pickerForDate, setPickerForDate] = useState<string | null>(null);
   const [actionsForDate, setActionsForDate] = useState<string | null>(null);
+  const [actionsInitialView, setActionsInitialView] = useState<'pickingSource' | undefined>(undefined);
+  const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   const isMobile = useIsMobile();
 
   const today = todayISO();
@@ -53,7 +57,32 @@ export function PlanPage() {
   const filledCount = slotsInWindow.length;
 
   function handleSlotTap(date: string) {
+    setActionsInitialView(undefined);
     setActionsForDate(date);
+  }
+
+  function handleQuickAction(date: string, action: QuickAction) {
+    switch (action) {
+      case 'recipe':
+        setPickerForDate(date);
+        break;
+      case 'leftovers':
+        setActionsInitialView('pickingSource');
+        setActionsForDate(date);
+        break;
+      case 'out':
+        dispatch({
+          type: 'SET_SLOT',
+          slot: { date, meal: MEAL, mode: 'out', servings_override: null },
+        });
+        break;
+      case 'skip':
+        dispatch({
+          type: 'SET_SLOT',
+          slot: { date, meal: MEAL, mode: 'skip', servings_override: null },
+        });
+        break;
+    }
   }
 
   function handlePickRecipe(recipeId: string) {
@@ -74,16 +103,13 @@ export function PlanPage() {
     setPickerForDate(null);
   }
 
-  function handleClearWindow() {
-    if (filledCount === 0) return;
+  function handleClearPlan() {
+    const total = currentPlan.slots.length;
+    if (total === 0) return;
     const ok = window.confirm(
-      `Clear all ${filledCount} slot${filledCount !== 1 ? 's' : ''} from this window?\n\nSlots outside the current 7-day window are not affected.`,
+      `Clear all ${total} planned meal${total !== 1 ? 's' : ''} from your plan?`,
     );
-    if (ok) {
-      for (const s of slotsInWindow) {
-        dispatch({ type: 'CLEAR_SLOT', date: s.date, meal: MEAL });
-      }
-    }
+    if (ok) dispatch({ type: 'CLEAR_PLAN' });
   }
 
   const activeSlot = actionsForDate ? slotByDate.get(actionsForDate) : undefined;
@@ -166,17 +192,18 @@ export function PlanPage() {
               leftoverSource={leftoverSource}
               isToday={date === today}
               onTap={() => handleSlotTap(date)}
+              onQuickAction={(action) => handleQuickAction(date, action)}
             />
           );
         })}
 
-        {filledCount > 0 && (
+        {currentPlan.slots.length > 0 && (
           <div className="pt-2 flex justify-center">
             <button
-              onClick={handleClearWindow}
+              onClick={handleClearPlan}
               className="text-xs font-medium text-gray-400 hover:text-red-500 transition-colors underline-offset-2 hover:underline px-3 py-2"
             >
-              Clear this window
+              Clear your plan
             </button>
           </div>
         )}
@@ -199,19 +226,43 @@ export function PlanPage() {
         </div>
       </Modal>
 
-      {/* Action sheet — handles both empty (4-way choice) and filled slots */}
+      {/* Action sheet — handles both empty (4-way choice) and filled slots,
+          and can be opened pre-positioned on the day-source picker via the
+          "Leftover" quick-action shortcut. */}
       {actionsForDate && (
         <SlotActions
           open
-          onClose={() => setActionsForDate(null)}
+          onClose={() => {
+            setActionsForDate(null);
+            setActionsInitialView(undefined);
+          }}
           date={actionsForDate}
           slot={activeSlot}
           recipe={activeRecipe}
           cookSlots={cookSlots}
+          initialView={actionsInitialView}
           onPickRecipe={() => {
             setPickerForDate(actionsForDate);
             setActionsForDate(null);
+            setActionsInitialView(undefined);
           }}
+          onViewRecipe={activeRecipe ? () => {
+            setViewingRecipe(activeRecipe);
+            setActionsForDate(null);
+            setActionsInitialView(undefined);
+          } : undefined}
+        />
+      )}
+
+      {/* Read-only recipe view from a slot. No add/edit/delete CTAs since
+          the user came in via the planner; recipe editing belongs to the
+          Recipes tab. */}
+      {viewingRecipe && (
+        <RecipeDetail
+          recipe={viewingRecipe}
+          open
+          onClose={() => setViewingRecipe(null)}
+          inPlan={true}
         />
       )}
     </div>

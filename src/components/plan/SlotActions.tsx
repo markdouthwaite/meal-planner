@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, MinusCircle, PlusCircle, Replace,
+  ChevronLeft, ChevronRight, Eye, MinusCircle, PlusCircle, Replace,
   RotateCw, Trash2, Utensils, X, BookOpen,
 } from 'lucide-react';
 import type { PlanSlot, Recipe } from '../../types';
@@ -20,6 +20,10 @@ interface SlotActionsProps {
   cookSlots: { date: string; recipe: Recipe }[];
   /** Caller opens the recipe picker for this date. */
   onPickRecipe: () => void;
+  /** Caller opens the read-only recipe detail view. */
+  onViewRecipe?: () => void;
+  /** Optional starting sub-screen (used for the "Leftover" quick-action shortcut). */
+  initialView?: 'pickingSource';
 }
 
 const MEAL = 'dinner' as const;
@@ -29,11 +33,13 @@ const MEAL = 'dinner' as const;
  * we show a 4-way choice (recipe / leftovers / out / skip). Otherwise the
  * actions depend on the slot's mode.
  */
-export function SlotActions({ open, onClose, date, slot, recipe, cookSlots, onPickRecipe }: SlotActionsProps) {
+export function SlotActions({
+  open, onClose, date, slot, recipe, cookSlots, onPickRecipe, onViewRecipe, initialView,
+}: SlotActionsProps) {
   const dispatch = useAppDispatch();
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState(slot?.notes ?? '');
-  const [pickingSource, setPickingSource] = useState(false);
+  const [pickingSource, setPickingSource] = useState(initialView === 'pickingSource');
 
   // Caller controls mount via `open`. We just lock body scroll for the
   // sheet's lifetime.
@@ -213,6 +219,9 @@ export function SlotActions({ open, onClose, date, slot, recipe, cookSlots, onPi
               </span>
             </button>
 
+            {onViewRecipe && (
+              <ActionRow icon={<Eye size={16} />} label="View recipe" onClick={() => { onViewRecipe(); onClose(); }} />
+            )}
             <ActionRow icon={<Replace size={16} />} label="Change recipe" onClick={() => { onPickRecipe(); onClose(); }} />
             <ActionRow icon={<RotateCw size={16} />} label="Make this leftovers of…" onClick={() => setMode('leftovers')} />
             <ActionRow icon={<Utensils size={16} />} label="Eating out instead" onClick={() => setMode('out')} />
@@ -223,6 +232,9 @@ export function SlotActions({ open, onClose, date, slot, recipe, cookSlots, onPi
         {/* ── Leftovers slot actions ────────────────────────────────────── */}
         {slot.mode === 'leftovers' && (
           <>
+            {onViewRecipe && (
+              <ActionRow icon={<Eye size={16} />} label="View recipe" onClick={() => { onViewRecipe(); onClose(); }} />
+            )}
             <ActionRow
               icon={<ChevronRight size={16} />}
               label={`Source: ${slot.leftovers_of ? formatDayLong(slot.leftovers_of) : '—'}`}

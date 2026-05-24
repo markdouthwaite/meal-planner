@@ -1,7 +1,9 @@
-import { ChevronRight, Plus, RotateCw, Utensils, X } from 'lucide-react';
+import { BookOpen, ChevronRight, RotateCw, Utensils, X } from 'lucide-react';
 import type { PlanSlot, Recipe } from '../../types';
 import { formatDayStripe, formatDayLong } from '../../utils/helpers';
 import { RecipeImage } from '../ui/RecipeImage';
+
+export type QuickAction = 'recipe' | 'leftovers' | 'out' | 'skip';
 
 interface SlotCardProps {
   date: string; // ISO YYYY-MM-DD
@@ -11,35 +13,56 @@ interface SlotCardProps {
   leftoverSource?: { recipe: Recipe; date: string };
   /** True if this card is today's row, so we can highlight it. */
   isToday: boolean;
+  /** Tap handler for filled slots — opens the quick-actions sheet. */
   onTap: () => void;
+  /** Quick-action handler for empty slots — fired by the inline chips. */
+  onQuickAction: (action: QuickAction) => void;
 }
 
 /**
- * One day's slot in the weekly plan. The whole card is one big tap target:
- * - empty → opens the slot chooser
- * - filled → opens the quick-actions sheet
+ * One day's slot in the weekly plan.
+ * - Empty → inline quick-action chips (recipe / leftover / out / skip), no
+ *   card-level tap (the chips are the only affordances).
+ * - Filled → whole card is the tap target, opens the actions sheet.
  */
-export function SlotCard({ date, slot, recipe, leftoverSource, isToday, onTap }: SlotCardProps) {
+export function SlotCard({
+  date, slot, recipe, leftoverSource, isToday, onTap, onQuickAction,
+}: SlotCardProps) {
   // ---- empty ----
   if (!slot) {
     return (
-      <button
-        onClick={onTap}
-        className={`group w-full text-left bg-white rounded-2xl border ${
+      <div
+        className={`w-full bg-white rounded-2xl border ${
           isToday ? 'border-brand-300' : 'border-gray-100'
-        } shadow-card hover:shadow-card-hover transition-all overflow-hidden`}
+        } shadow-card overflow-hidden`}
       >
         <div className="flex items-stretch min-h-[80px]">
           <DayStripe date={date} isToday={isToday} />
-          <div className="flex-1 flex items-center justify-between px-4 py-3 text-gray-400 group-hover:text-brand-600 transition-colors">
-            <span className="inline-flex items-center gap-2 text-sm font-medium">
-              <Plus size={16} />
-              Add a meal
-            </span>
-            <ChevronRight size={16} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+          <div className="flex-1 px-3 py-3 flex flex-wrap items-center gap-1.5">
+            <Chip
+              icon={<BookOpen size={12} />}
+              label="Recipe"
+              onClick={() => onQuickAction('recipe')}
+              primary
+            />
+            <Chip
+              icon={<RotateCw size={12} />}
+              label="Leftover"
+              onClick={() => onQuickAction('leftovers')}
+            />
+            <Chip
+              icon={<Utensils size={12} />}
+              label="Out"
+              onClick={() => onQuickAction('out')}
+            />
+            <Chip
+              icon={<X size={12} />}
+              label="Skip"
+              onClick={() => onQuickAction('skip')}
+            />
           </div>
         </div>
-      </button>
+      </div>
     );
   }
 
@@ -82,13 +105,15 @@ export function SlotCard({ date, slot, recipe, leftoverSource, isToday, onTap }:
       >
         <div className="flex items-stretch min-h-[80px]">
           <DayStripe date={date} isToday={isToday} />
-          <RecipeImage
-            src={sourceRecipe?.image}
-            alt={sourceRecipe?.title ?? 'Leftovers'}
-            title={sourceRecipe?.title}
-            mealTypes={sourceRecipe?.meal_type}
-            className="w-20 h-full flex-shrink-0"
-          />
+          <div className="w-20 flex-shrink-0 self-stretch overflow-hidden">
+            <RecipeImage
+              src={sourceRecipe?.image}
+              alt={sourceRecipe?.title ?? 'Leftovers'}
+              title={sourceRecipe?.title}
+              mealTypes={sourceRecipe?.meal_type}
+              className="w-full h-full block"
+            />
+          </div>
           <div className="flex-1 flex items-center justify-between gap-2 px-3 py-3 min-w-0">
             <div className="min-w-0">
               <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-accent-600 mb-0.5">
@@ -122,13 +147,15 @@ export function SlotCard({ date, slot, recipe, leftoverSource, isToday, onTap }:
     >
       <div className="flex items-stretch min-h-[80px]">
         <DayStripe date={date} isToday={isToday} />
-        <RecipeImage
-          src={recipe?.image}
-          alt={recipe?.title ?? 'Recipe'}
-          title={recipe?.title}
-          mealTypes={recipe?.meal_type}
-          className="w-20 h-full flex-shrink-0"
-        />
+        <div className="w-20 flex-shrink-0 self-stretch overflow-hidden">
+          <RecipeImage
+            src={recipe?.image}
+            alt={recipe?.title ?? 'Recipe'}
+            title={recipe?.title}
+            mealTypes={recipe?.meal_type}
+            className="w-full h-full block"
+          />
+        </div>
         <div className="flex-1 flex items-center justify-between gap-2 px-3 py-3 min-w-0">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-gray-900 truncate">
@@ -166,5 +193,23 @@ function DayStripe({ date, isToday }: { date: string; isToday: boolean }) {
         {isToday ? weekday : day}
       </span>
     </div>
+  );
+}
+
+function Chip({
+  icon, label, onClick, primary,
+}: { icon: React.ReactNode; label: string; onClick: () => void; primary?: boolean }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-[11px] font-semibold transition-colors min-h-[36px] ${
+        primary
+          ? 'bg-brand-600 text-white hover:bg-brand-700 active:bg-brand-800'
+          : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:text-gray-900'
+      }`}
+    >
+      {icon}
+      <span>{label}</span>
+    </button>
   );
 }
