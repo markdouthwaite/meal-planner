@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { CalendarDays, ChevronDown } from 'lucide-react';
+import { CalendarDays, CalendarPlus, ChevronDown, Sparkles } from 'lucide-react';
 import { useAppState, useAppDispatch } from '../../store/AppContext';
 import { SlotCard, type QuickAction } from './SlotCard';
 import { SlotActions } from './SlotActions';
@@ -54,7 +54,6 @@ export function PlanPage() {
   const slotsInWindow = windowDates
     .map(d => slotByDate.get(d))
     .filter((s): s is PlanSlot => !!s);
-  const filledCount = slotsInWindow.length;
 
   function handleSlotTap(date: string) {
     setActionsInitialView(undefined);
@@ -131,16 +130,13 @@ export function PlanPage() {
 
   return (
     <div className="flex flex-col h-full bg-gray-50">
-      {/* Sticky header with window range + date-pick affordance. The native
-          date input is always mounted but visually invisible, layered over
-          the formatted label so taps land directly on the input (no JS
-          showPicker() gymnastics, which were unreliable across browsers). */}
-      <div className="bg-white border-b border-gray-100 px-4 sm:px-6 py-3 sticky top-0 z-10">
-        <div className="text-center">
-          <p className="text-[10px] text-gray-400 font-semibold uppercase tracking-wider">
-            Planning
-          </p>
-          <div className="relative inline-block">
+      {/* Sticky single-row toolbar: date range on the left, action icons on
+          the right. The native date input is always mounted but visually
+          invisible, layered over the formatted label so taps land directly
+          on the input (no JS showPicker() gymnastics). */}
+      <div className="bg-white border-b border-gray-100 px-3 sm:px-6 py-2 sticky top-0 z-10">
+        <div className="flex items-center justify-between gap-2">
+          <div className="relative">
             <input
               type="date"
               value={windowStart}
@@ -150,23 +146,33 @@ export function PlanPage() {
               aria-label="Change planning start date"
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
             />
-            <div className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 px-1">
-              <CalendarDays size={14} className="text-gray-400" />
+            <div className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-800 px-2 py-2">
+              <CalendarDays size={16} className="text-gray-400" />
               {formatDateRange(windowStart, windowEnd)}
               <ChevronDown size={14} className="text-gray-400" />
             </div>
           </div>
-          <p className="text-[11px] text-gray-400 mt-0.5">
-            {filledCount} of {WINDOW_DAYS} planned
+
+          <div className="flex items-center gap-0.5">
             {windowStart !== today && (
               <button
                 onClick={() => setWindowStart(today)}
-                className="ml-2 text-brand-600 hover:underline"
+                className="px-2.5 py-2 text-xs font-semibold text-brand-600 hover:bg-brand-50 rounded-lg min-h-[36px]"
+                aria-label="Reset to today"
               >
-                Reset to today
+                Today
               </button>
             )}
-          </p>
+            {/* Disabled placeholders — wired up in a later phase. */}
+            <ToolbarAction
+              icon={<Sparkles size={16} />}
+              label="Auto-generate plan (coming soon)"
+            />
+            <ToolbarAction
+              icon={<CalendarPlus size={16} />}
+              label="Export to calendar (coming soon)"
+            />
+          </div>
         </div>
       </div>
 
@@ -266,5 +272,20 @@ export function PlanPage() {
         />
       )}
     </div>
+  );
+}
+
+/** Small disabled icon button for placeholder toolbar actions. */
+function ToolbarAction({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <button
+      type="button"
+      disabled
+      aria-label={label}
+      title={label}
+      className="p-2 rounded-lg text-gray-300 cursor-not-allowed min-h-[36px] min-w-[36px] flex items-center justify-center"
+    >
+      {icon}
+    </button>
   );
 }
