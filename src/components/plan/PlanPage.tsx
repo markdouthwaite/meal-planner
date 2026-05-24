@@ -3,6 +3,7 @@ import { CalendarDays, CalendarPlus, ChevronDown, Sparkles } from 'lucide-react'
 import { useAppState, useAppDispatch } from '../../store/AppContext';
 import { SlotCard, type QuickAction } from './SlotCard';
 import { SlotActions } from './SlotActions';
+import { AutoGenerateSheet } from './AutoGenerateSheet';
 import { RecipesPage } from '../recipes/RecipesPage';
 import { RecipeDetail } from '../recipes/RecipeDetail';
 import { Modal } from '../ui/Modal';
@@ -24,6 +25,7 @@ export function PlanPage() {
   const [actionsForDate, setActionsForDate] = useState<string | null>(null);
   const [actionsInitialView, setActionsInitialView] = useState<'pickingSource' | undefined>(undefined);
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
+  const [autoGenOpen, setAutoGenOpen] = useState(false);
   const isMobile = useIsMobile();
 
   const today = todayISO();
@@ -163,10 +165,10 @@ export function PlanPage() {
                 Today
               </button>
             )}
-            {/* Disabled placeholders — wired up in a later phase. */}
             <ToolbarAction
               icon={<Sparkles size={16} />}
-              label="Auto-generate plan (coming soon)"
+              label="Auto-generate plan"
+              onClick={() => setAutoGenOpen(true)}
             />
             <ToolbarAction
               icon={<CalendarPlus size={16} />}
@@ -271,19 +273,47 @@ export function PlanPage() {
           inPlan={true}
         />
       )}
+
+      {/* Auto-generate sheet */}
+      <AutoGenerateSheet
+        open={autoGenOpen}
+        onClose={() => setAutoGenOpen(false)}
+        windowDates={windowDates}
+        existingSlotsByDate={slotByDate}
+        recipes={recipes}
+      />
     </div>
   );
 }
 
-/** Small disabled icon button for placeholder toolbar actions. */
-function ToolbarAction({ icon, label }: { icon: React.ReactNode; label: string }) {
+/**
+ * Toolbar icon button. With `onClick`, renders an enabled, hoverable button;
+ * without one, renders a disabled placeholder (for actions that aren't built
+ * yet — e.g. "Export to calendar").
+ */
+function ToolbarAction({
+  icon, label, onClick,
+}: { icon: React.ReactNode; label: string; onClick?: () => void }) {
+  if (!onClick) {
+    return (
+      <button
+        type="button"
+        disabled
+        aria-label={label}
+        title={label}
+        className="p-2 rounded-lg text-gray-300 cursor-not-allowed min-h-[36px] min-w-[36px] flex items-center justify-center"
+      >
+        {icon}
+      </button>
+    );
+  }
   return (
     <button
       type="button"
-      disabled
+      onClick={onClick}
       aria-label={label}
       title={label}
-      className="p-2 rounded-lg text-gray-300 cursor-not-allowed min-h-[36px] min-w-[36px] flex items-center justify-center"
+      className="p-2 rounded-lg text-gray-500 hover:text-brand-600 hover:bg-gray-50 transition-colors min-h-[36px] min-w-[36px] flex items-center justify-center"
     >
       {icon}
     </button>
