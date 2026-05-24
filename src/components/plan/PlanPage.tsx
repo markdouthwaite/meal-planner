@@ -4,7 +4,9 @@ import { useAppState, useAppDispatch } from '../../store/AppContext';
 import { SlotCard, type QuickAction } from './SlotCard';
 import { SlotActions } from './SlotActions';
 import { RecipesPage } from '../recipes/RecipesPage';
+import { RecipeDetail } from '../recipes/RecipeDetail';
 import { Modal } from '../ui/Modal';
+import type { Recipe } from '../../types';
 import {
   todayISO, addDaysISO, formatDateRange, formatDayLong, daysBetweenISO,
 } from '../../utils/helpers';
@@ -21,6 +23,7 @@ export function PlanPage() {
   const [pickerForDate, setPickerForDate] = useState<string | null>(null);
   const [actionsForDate, setActionsForDate] = useState<string | null>(null);
   const [actionsInitialView, setActionsInitialView] = useState<'pickingSource' | undefined>(undefined);
+  const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   const isMobile = useIsMobile();
 
   const today = todayISO();
@@ -243,6 +246,23 @@ export function PlanPage() {
             setActionsForDate(null);
             setActionsInitialView(undefined);
           }}
+          onViewRecipe={activeRecipe ? () => {
+            setViewingRecipe(activeRecipe);
+            setActionsForDate(null);
+            setActionsInitialView(undefined);
+          } : undefined}
+        />
+      )}
+
+      {/* Read-only recipe view from a slot. No add/edit/delete CTAs since
+          the user came in via the planner; recipe editing belongs to the
+          Recipes tab. */}
+      {viewingRecipe && (
+        <RecipeDetail
+          recipe={viewingRecipe}
+          open
+          onClose={() => setViewingRecipe(null)}
+          inPlan={true}
         />
       )}
     </div>

@@ -105,13 +105,15 @@ export function SlotCard({
       >
         <div className="flex items-stretch min-h-[80px]">
           <DayStripe date={date} isToday={isToday} />
-          <RecipeImage
-            src={sourceRecipe?.image}
-            alt={sourceRecipe?.title ?? 'Leftovers'}
-            title={sourceRecipe?.title}
-            mealTypes={sourceRecipe?.meal_type}
-            className="w-20 h-full flex-shrink-0"
-          />
+          <div className="w-20 flex-shrink-0 self-stretch overflow-hidden">
+            <RecipeImage
+              src={sourceRecipe?.image}
+              alt={sourceRecipe?.title ?? 'Leftovers'}
+              title={sourceRecipe?.title}
+              mealTypes={sourceRecipe?.meal_type}
+              className="w-full h-full block"
+            />
+          </div>
           <div className="flex-1 flex items-center justify-between gap-2 px-3 py-3 min-w-0">
             <div className="min-w-0">
               <div className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-accent-600 mb-0.5">
@@ -145,13 +147,15 @@ export function SlotCard({
     >
       <div className="flex items-stretch min-h-[80px]">
         <DayStripe date={date} isToday={isToday} />
-        <RecipeImage
-          src={recipe?.image}
-          alt={recipe?.title ?? 'Recipe'}
-          title={recipe?.title}
-          mealTypes={recipe?.meal_type}
-          className="w-20 h-full flex-shrink-0"
-        />
+        <div className="w-20 flex-shrink-0 self-stretch overflow-hidden">
+          <RecipeImage
+            src={recipe?.image}
+            alt={recipe?.title ?? 'Recipe'}
+            title={recipe?.title}
+            mealTypes={recipe?.meal_type}
+            className="w-full h-full block"
+          />
+        </div>
         <div className="flex-1 flex items-center justify-between gap-2 px-3 py-3 min-w-0">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-gray-900 truncate">

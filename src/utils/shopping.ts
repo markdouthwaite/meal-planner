@@ -81,12 +81,12 @@ export function shoppingListToChecklist(
   items: AggregatedItem[],
   manualItems: ShoppingItem[]
 ): string {
-  // Bulleted plain-text list. Each line becomes a separate item when pasted
-  // into Apple Reminders / most note apps; the bullet character (•) keeps
-  // it readable when pasted somewhere that doesn't auto-split lines.
+  // Markdown-style bullets (`* Item — qty unit`). Each line becomes a
+  // separate item when pasted into Apple Reminders, and the format also
+  // renders as a real list in Markdown editors (Notion, Bear, etc.).
   const lines = [
-    ...items.map(i => `• ${i.name} — ${formatQuantity(i.quantity)} ${i.unit}`),
-    ...manualItems.filter(i => !i.removed).map(i => `• ${i.name} — ${formatQuantity(i.quantity)} ${i.unit}`),
+    ...items.map(i => `* ${i.name} — ${formatQuantity(i.quantity)} ${i.unit}`),
+    ...manualItems.filter(i => !i.removed).map(i => `* ${i.name} — ${formatQuantity(i.quantity)} ${i.unit}`),
   ];
   return lines.join('\n');
 }
