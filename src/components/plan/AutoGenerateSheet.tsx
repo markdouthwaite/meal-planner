@@ -23,7 +23,9 @@ export function AutoGenerateSheet({
 }: AutoGenerateSheetProps) {
   const dispatch = useAppDispatch();
   const [selectedLeftoverDates, setSelectedLeftoverDates] = useState<Set<string>>(new Set());
-  const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
+  const [selectedTags, setSelectedTags] = useState<Set<string>>(
+    () => new Set(['vegetarian', 'vegan', 'healthy', 'fish']),
+  );
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
@@ -123,7 +125,7 @@ export function AutoGenerateSheet({
               {allTags.length > 0 && (
                 <Section
                   title="Filter by tag"
-                  hint="Only consider recipes that have all selected tags."
+                  hint="Include recipes matching any of these tags."
                 >
                   <div className="flex flex-wrap gap-1.5">
                     {allTags.map(tag => {

@@ -72,13 +72,16 @@ export function autoGeneratePlan(input: AutoGenerateInput): AutoGenerateResult {
     if (slot.mode === 'cook' && slot.recipe_id) usedRecipeIds.add(slot.recipe_id);
   }
   let pool = recipes.filter(r => !usedRecipeIds.has(r.id));
+  // OR filter: recipe must match at least one selected tag. With multiple
+  // tags selected (e.g. "vegetarian, fish, healthy") this gives a broader,
+  // varied pool rather than the near-empty intersection you'd get with AND.
   if (tagFilter.size > 0) {
     pool = pool.filter(r => {
       const recipeTags = new Set(r.tags.map(t => t.toLowerCase()));
       for (const t of tagFilter) {
-        if (!recipeTags.has(t.toLowerCase())) return false;
+        if (recipeTags.has(t.toLowerCase())) return true;
       }
-      return true;
+      return false;
     });
   }
 
