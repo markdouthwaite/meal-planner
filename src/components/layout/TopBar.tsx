@@ -29,7 +29,13 @@ export function TopBar({ onOpenShopping, shoppingVisible = false }: TopBarProps)
   ];
 
   return (
-    <header className="bg-white/80 backdrop-blur-xl border-b border-gray-100 px-4 sm:px-6 pt-[env(safe-area-inset-top)] h-[calc(3.5rem+env(safe-area-inset-top))] flex items-center justify-between shrink-0 z-30 supports-[backdrop-filter]:bg-white/70">
+    <header
+      className="bg-white border-b border-gray-100 px-4 sm:px-6 flex items-center justify-between shrink-0 z-30"
+      style={{
+        paddingTop: 'env(safe-area-inset-top, 0px)',
+        minHeight: 'calc(3.5rem + env(safe-area-inset-top, 0px))',
+      }}
+    >
       {/* Logo */}
       <div className="flex items-center gap-2 min-w-[140px]">
         <div className="w-8 h-8 rounded-xl bg-white border border-gray-200 flex items-center justify-center flex-shrink-0">
