@@ -44,3 +44,8 @@ src/
 ## Supabase Integration
 
 Copy `.env.example` to `.env.local` and fill in your Supabase credentials to connect a real backend.
+
+## Future TODOs
+
+- 5-star recipe rating mechanism — let users rate recipes (1–5 stars) so the auto-generate algorithm can prefer higher-rated meals and surface low-rated ones for review or deletion. Ratings stored per recipe (or per user once Supabase is wired) and exposed in the recipe card, detail view, and as an optional sort in the Recipes tab.
+

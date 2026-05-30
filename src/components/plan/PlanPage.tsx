@@ -71,12 +71,6 @@ export function PlanPage() {
         setActionsInitialView('pickingSource');
         setActionsForDate(date);
         break;
-      case 'out':
-        dispatch({
-          type: 'SET_SLOT',
-          slot: { date, meal: MEAL, mode: 'out', servings_override: null },
-        });
-        break;
       case 'skip':
         dispatch({
           type: 'SET_SLOT',

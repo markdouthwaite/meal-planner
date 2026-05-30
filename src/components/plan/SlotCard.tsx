@@ -1,9 +1,9 @@
-import { BookOpen, ChevronRight, RotateCw, Utensils, X } from 'lucide-react';
+import { BookOpen, ChevronRight, RotateCw, X } from 'lucide-react';
 import type { PlanSlot, Recipe } from '../../types';
 import { formatDayStripe, formatDayLong } from '../../utils/helpers';
 import { RecipeImage } from '../ui/RecipeImage';
 
-export type QuickAction = 'recipe' | 'leftovers' | 'out' | 'skip';
+export type QuickAction = 'recipe' | 'leftovers' | 'skip';
 
 interface SlotCardProps {
   date: string; // ISO YYYY-MM-DD
@@ -21,7 +21,7 @@ interface SlotCardProps {
 
 /**
  * One day's slot in the weekly plan.
- * - Empty → inline quick-action chips (recipe / leftover / out / skip), no
+ * - Empty → inline quick-action chips (recipe / leftover / skip), no
  *   card-level tap (the chips are the only affordances).
  * - Filled → whole card is the tap target, opens the actions sheet.
  */
@@ -51,11 +51,6 @@ export function SlotCard({
               onClick={() => onQuickAction('leftovers')}
             />
             <Chip
-              icon={<Utensils size={12} />}
-              label="Out"
-              onClick={() => onQuickAction('out')}
-            />
-            <Chip
               icon={<X size={12} />}
               label="Skip"
               onClick={() => onQuickAction('skip')}
@@ -66,10 +61,10 @@ export function SlotCard({
     );
   }
 
-  // ---- out / skip ----
-  if (slot.mode === 'out' || slot.mode === 'skip') {
-    const label = slot.mode === 'out' ? 'Eating out' : 'Skipping';
-    const icon = slot.mode === 'out' ? <Utensils size={16} /> : <X size={16} />;
+  // ---- skip ----
+  if (slot.mode === 'skip') {
+    const label = 'Skipping';
+    const icon = <X size={16} />;
     return (
       <button
         onClick={onTap}

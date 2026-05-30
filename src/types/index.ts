@@ -33,11 +33,11 @@ export interface Recipe {
  * - `cook`      — cooking the recipe today; ingredients go on the shopping list.
  * - `leftovers` — re-eating a recipe cooked on another day (`leftovers_of`);
  *                 contributes nothing extra to the shopping list.
- * - `out`       — eating out / takeaway; no recipe, no shopping.
- * - `skip`      — intentionally skipping this meal (lets the user mark the
- *                 slot as "handled" without picking).
+ * - `skip`      — no cooking today (eating out, fasting, fending for
+ *                 ourselves, etc.). Marks the slot as handled without
+ *                 picking a recipe.
  */
-export type SlotMode = 'cook' | 'leftovers' | 'out' | 'skip';
+export type SlotMode = 'cook' | 'leftovers' | 'skip';
 
 export interface PlanSlot {
   /** ISO date (YYYY-MM-DD) the slot belongs to. */

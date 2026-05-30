@@ -70,10 +70,13 @@ function migratePlan(raw: unknown): MealPlan {
 
   if (Array.isArray(plan.slots)) {
     // Phase 1 had `day`; Phase 2 has `date`. Normalise to `date`.
+    // Legacy 'out' mode is collapsed into 'skip' — they had the same
+    // behaviour (no recipe, no shopping) so we just keep one.
     const slots: PlanSlot[] = plan.slots
       .map(s => {
+        const mode = (s.mode as string) === 'out' ? 'skip' : s.mode;
         if ('date' in s && typeof s.date === 'string') {
-          return s as PlanSlot;
+          return { ...(s as PlanSlot), mode };
         }
         const date = wdToISO((s as { day?: string }).day);
         if (!date) return null;
@@ -84,7 +87,7 @@ function migratePlan(raw: unknown): MealPlan {
         return {
           date,
           meal: s.meal ?? 'dinner',
-          mode: s.mode,
+          mode,
           recipe_id: s.recipe_id,
           servings_override: s.servings_override ?? null,
           leftovers_of,
