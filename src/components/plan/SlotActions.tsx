@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, Eye, MinusCircle, PlusCircle, Replace,
-  RotateCw, Trash2, Utensils, X, BookOpen,
+  RotateCw, Trash2, X, BookOpen,
 } from 'lucide-react';
 import type { PlanSlot, Recipe } from '../../types';
 import { formatDayLong } from '../../utils/helpers';
@@ -132,14 +132,6 @@ export function SlotActions({
             onClick={() => setPickingSource(true)}
           />
           <ActionRow
-            icon={<Utensils size={16} />}
-            label="Eating out"
-            onClick={() => {
-              setSlot({ mode: 'out', recipe_id: undefined, servings_override: null });
-              onClose();
-            }}
-          />
-          <ActionRow
             icon={<X size={16} />}
             label="Skip this meal"
             onClick={() => {
@@ -224,7 +216,6 @@ export function SlotActions({
             )}
             <ActionRow icon={<Replace size={16} />} label="Change recipe" onClick={() => { onPickRecipe(); onClose(); }} />
             <ActionRow icon={<RotateCw size={16} />} label="Make this leftovers of…" onClick={() => setMode('leftovers')} />
-            <ActionRow icon={<Utensils size={16} />} label="Eating out instead" onClick={() => setMode('out')} />
             <ActionRow icon={<X size={16} />} label="Skip this meal" onClick={() => setMode('skip')} />
           </>
         )}
@@ -242,21 +233,15 @@ export function SlotActions({
               onClick={() => setPickingSource(true)}
             />
             <ActionRow icon={<Replace size={16} />} label="Cook fresh instead" onClick={() => { onPickRecipe(); onClose(); }} />
-            <ActionRow icon={<Utensils size={16} />} label="Eating out instead" onClick={() => setMode('out')} />
             <ActionRow icon={<X size={16} />} label="Skip this meal" onClick={() => setMode('skip')} />
           </>
         )}
 
-        {/* ── Out / Skip slot actions ───────────────────────────────────── */}
-        {(slot.mode === 'out' || slot.mode === 'skip') && (
+        {/* ── Skip slot actions ─────────────────────────────────────────── */}
+        {slot.mode === 'skip' && (
           <>
             <ActionRow icon={<BookOpen size={16} />} label="Pick a recipe" onClick={() => { onPickRecipe(); onClose(); }} />
             <ActionRow icon={<RotateCw size={16} />} label="Make this leftovers of…" onClick={() => setMode('leftovers')} />
-            <ActionRow
-              icon={slot.mode === 'out' ? <X size={16} /> : <Utensils size={16} />}
-              label={slot.mode === 'out' ? 'Switch to skipped' : 'Switch to eating out'}
-              onClick={() => setMode(slot.mode === 'out' ? 'skip' : 'out')}
-            />
           </>
         )}
 
@@ -319,7 +304,6 @@ function modeLabel(m: PlanSlot['mode']): string {
   switch (m) {
     case 'cook': return 'Cooking';
     case 'leftovers': return 'Leftovers';
-    case 'out': return 'Eating out';
     case 'skip': return 'Skipping';
   }
 }

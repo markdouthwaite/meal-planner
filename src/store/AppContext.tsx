@@ -26,7 +26,7 @@ type Action =
   | { type: 'TOGGLE_REMOVED_RECIPE_ITEM'; key: string }
   | { type: 'SET_RECIPE_ITEM_QUANTITY'; key: string; quantity: number }
   | { type: 'RESET_RECIPE_ITEM_QUANTITY'; key: string }
-  | { type: 'CLEAR_SHOPPING_LIST' }
+  | { type: 'CLEAR_SHOPPING_LIST'; recipeItemKeys?: string[] }
   | { type: 'LOAD_STATE'; state: AppState };
 
 function getDefaultPlan(): MealPlan {
@@ -70,10 +70,13 @@ function migratePlan(raw: unknown): MealPlan {
 
   if (Array.isArray(plan.slots)) {
     // Phase 1 had `day`; Phase 2 has `date`. Normalise to `date`.
+    // Legacy 'out' mode is collapsed into 'skip' — they had the same
+    // behaviour (no recipe, no shopping) so we just keep one.
     const slots: PlanSlot[] = plan.slots
       .map(s => {
+        const mode = (s.mode as string) === 'out' ? 'skip' : s.mode;
         if ('date' in s && typeof s.date === 'string') {
-          return s as PlanSlot;
+          return { ...(s as PlanSlot), mode };
         }
         const date = wdToISO((s as { day?: string }).day);
         if (!date) return null;
@@ -84,7 +87,7 @@ function migratePlan(raw: unknown): MealPlan {
         return {
           date,
           meal: s.meal ?? 'dinner',
-          mode: s.mode,
+          mode,
           recipe_id: s.recipe_id,
           servings_override: s.servings_override ?? null,
           leftovers_of,
@@ -244,13 +247,22 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, recipeItemQuantityOverrides: next };
     }
 
-    case 'CLEAR_SHOPPING_LIST':
+    case 'CLEAR_SHOPPING_LIST': {
+      // Move every currently-aggregated recipe item to the "Not needed"
+      // section so the active list visibly empties. Manual items are deleted
+      // outright (no "Not needed" concept for those), and quantity overrides
+      // are reset.
+      const newRemoved = new Set(state.removedRecipeItems);
+      if (action.recipeItemKeys) {
+        for (const k of action.recipeItemKeys) newRemoved.add(k);
+      }
       return {
         ...state,
         shoppingItems: [],
-        removedRecipeItems: new Set(),
+        removedRecipeItems: newRemoved,
         recipeItemQuantityOverrides: {},
       };
+    }
 
     case 'LOAD_STATE':
       return action.state;
