@@ -851,6 +851,37 @@ const SEED_RECIPES_RAW: Recipe[] = [
     created_at: now,
     updated_at: now,
   },
+  {
+    id: generateId(),
+    title: 'Goan Fish Curry',
+    description: "Gymkhana's quick Goan fish curry — cod fillets marinated in roasted garlic & chilli, seared until golden, then simmered in a coconut Goan curry sauce and finished with a curry-leaf and red chilli tadka.",
+    image: undefined,
+    ingredients: [
+      { id: generateId(), name: 'Goan curry cooking sauce (jar)', quantity: 1, unit: 'pack' },
+      { id: generateId(), name: 'Roasted garlic & chilli marinade (jar)', quantity: 1, unit: 'pack' },
+      { id: generateId(), name: 'Cod fillets', quantity: 2, unit: 'pieces' },
+      { id: generateId(), name: 'Ground turmeric', quantity: 0.25, unit: 'tsp' },
+      { id: generateId(), name: 'Chilli powder', quantity: 0.25, unit: 'tsp' },
+      { id: generateId(), name: 'Salt', quantity: 0.25, unit: 'tsp' },
+      { id: generateId(), name: 'Curry leaves', quantity: 2, unit: 'g' },
+      { id: generateId(), name: 'Red chillies', quantity: 2, unit: 'g' },
+      { id: generateId(), name: 'Mustard seeds', quantity: 1, unit: 'tsp' },
+      { id: generateId(), name: 'Vegetable oil', quantity: 1, unit: 'tbsp' },
+    ],
+    steps: [
+      'Marinate the cod fillets in the roasted garlic & chilli marinade with the turmeric, chilli powder and salt for 15–20 minutes.',
+      'Heat the oil in a pan and sear the cod fillets skin-side down for 6 minutes, or until golden, then turn and cook for a further 4 minutes until the fish is cooked through.',
+      'Add the Goan curry sauce and simmer for 6–8 minutes.',
+      'Serve with a tadka of mustard seeds, curry leaves and chopped red chillies.',
+    ],
+    meal_type: ['dinner'],
+    servings: 2,
+    notes: "Uses Gymkhana Fine Foods' jarred Goan curry cooking sauce and roasted garlic & chilli marinade. Swap the cod for another firm white fish, salmon or prawns if you prefer. Serve with steamed basmati rice.",
+    source_url: 'https://www.gymkhanafinefoods.com/blogs/recipe/goan-fish-curry',
+    tags: ['fish', 'curry', 'quick', 'midweek'],
+    created_at: now,
+    updated_at: now,
+  },
 ];
 
 /**
