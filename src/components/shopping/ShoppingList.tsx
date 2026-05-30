@@ -213,9 +213,14 @@ function ShoppingPanel({ showClose, onClose }: PanelProps) {
   function handleClearList() {
     if (totalCount === 0) return;
     const ok = window.confirm(
-      'Clear the shopping list?\n\nThis removes any extra items you\'ve added and resets quantity changes and "not needed" items. Your meal plan is untouched.',
+      'Clear the shopping list?\n\nEverything currently on the list moves to "Not needed", manual items are deleted, and quantity changes are reset. Your meal plan is untouched.',
     );
-    if (ok) dispatch({ type: 'CLEAR_SHOPPING_LIST' });
+    if (ok) {
+      dispatch({
+        type: 'CLEAR_SHOPPING_LIST',
+        recipeItemKeys: aggregated.map(i => i.key),
+      });
+    }
   }
 
   // Derive the effective editing id — drops stale ids when the target disappears

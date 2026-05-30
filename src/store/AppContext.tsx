@@ -26,7 +26,7 @@ type Action =
   | { type: 'TOGGLE_REMOVED_RECIPE_ITEM'; key: string }
   | { type: 'SET_RECIPE_ITEM_QUANTITY'; key: string; quantity: number }
   | { type: 'RESET_RECIPE_ITEM_QUANTITY'; key: string }
-  | { type: 'CLEAR_SHOPPING_LIST' }
+  | { type: 'CLEAR_SHOPPING_LIST'; recipeItemKeys?: string[] }
   | { type: 'LOAD_STATE'; state: AppState };
 
 function getDefaultPlan(): MealPlan {
@@ -244,13 +244,22 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, recipeItemQuantityOverrides: next };
     }
 
-    case 'CLEAR_SHOPPING_LIST':
+    case 'CLEAR_SHOPPING_LIST': {
+      // Move every currently-aggregated recipe item to the "Not needed"
+      // section so the active list visibly empties. Manual items are deleted
+      // outright (no "Not needed" concept for those), and quantity overrides
+      // are reset.
+      const newRemoved = new Set(state.removedRecipeItems);
+      if (action.recipeItemKeys) {
+        for (const k of action.recipeItemKeys) newRemoved.add(k);
+      }
       return {
         ...state,
         shoppingItems: [],
-        removedRecipeItems: new Set(),
+        removedRecipeItems: newRemoved,
         recipeItemQuantityOverrides: {},
       };
+    }
 
     case 'LOAD_STATE':
       return action.state;
