@@ -91,6 +91,20 @@ export function shoppingListToChecklist(
   return lines.join('\n');
 }
 
+export function shoppingListToPlainText(
+  items: AggregatedItem[],
+  manualItems: ShoppingItem[]
+): string {
+  // Plain lines (`Item — qty unit`), no bullets. Apple Reminders turns each
+  // line into its own reminder, so a leading `* ` would show up as literal
+  // text on every item.
+  const lines = [
+    ...items.map(i => `${i.name} — ${formatQuantity(i.quantity)} ${i.unit}`),
+    ...manualItems.filter(i => !i.removed).map(i => `${i.name} — ${formatQuantity(i.quantity)} ${i.unit}`),
+  ];
+  return lines.join('\n');
+}
+
 export function downloadCSV(content: string, filename: string) {
   const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
