@@ -43,7 +43,14 @@ src/
 
 ## Supabase Integration
 
-Copy `.env.example` to `.env.local` and fill in your Supabase credentials to connect a real backend.
+The app is being connected to Supabase for real accounts and shared,
+multi-device data (per-household workspaces). The database schema lives in
+`supabase/migrations/0001_init.sql`, and the step-by-step rollout — applying the
+schema, configuring Auth, env vars, and the phased client wiring — is documented
+in [`docs/supabase-integration.md`](docs/supabase-integration.md).
+
+Quick start: copy `.env.example` to `.env.local` and fill in your Supabase
+`VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY` from **Project Settings → API**.
 
 ## Future TODOs
 
