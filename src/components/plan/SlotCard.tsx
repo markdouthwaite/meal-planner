@@ -11,6 +11,8 @@ interface SlotCardProps {
   recipe: Recipe | undefined;
   /** For leftover slots, the recipe being re-eaten (looked up via leftovers_of). */
   leftoverSource?: { recipe: Recipe; date: string };
+  /** Display titles for any sides on this slot. */
+  sideTitles?: string[];
   /** True if this card is today's row, so we can highlight it. */
   isToday: boolean;
   /** Tap handler for filled slots — opens the quick-actions sheet. */
@@ -26,8 +28,11 @@ interface SlotCardProps {
  * - Filled → whole card is the tap target, opens the actions sheet.
  */
 export function SlotCard({
-  date, slot, recipe, leftoverSource, isToday, onTap, onQuickAction,
+  date, slot, recipe, leftoverSource, sideTitles, isToday, onTap, onQuickAction,
 }: SlotCardProps) {
+  const sidesLine = sideTitles && sideTitles.length > 0
+    ? `+ ${sideTitles.join(', ')}`
+    : null;
   // ---- empty ----
   if (!slot) {
     return (
@@ -119,6 +124,9 @@ export function SlotCard({
               <p className="text-sm font-semibold text-gray-900 truncate">
                 {sourceRecipe?.title ?? 'Source missing'}
               </p>
+              {sidesLine && (
+                <p className="text-xs text-brand-700 truncate mt-0.5">{sidesLine}</p>
+              )}
               {slot.notes && (
                 <p className="text-xs text-gray-400 truncate">{slot.notes}</p>
               )}
@@ -164,6 +172,9 @@ export function SlotCard({
                 </span>
               )}
             </div>
+            {sidesLine && (
+              <p className="text-xs text-brand-700 truncate mt-0.5">{sidesLine}</p>
+            )}
             {slot.notes && (
               <p className="text-xs text-gray-400 truncate mt-0.5">{slot.notes}</p>
             )}

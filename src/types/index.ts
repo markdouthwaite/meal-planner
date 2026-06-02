@@ -39,6 +39,13 @@ export interface Recipe {
  */
 export type SlotMode = 'cook' | 'leftovers' | 'skip';
 
+/** A side dish attached to a slot — references a recipe in the library. */
+export interface SlotSide {
+  recipe_id: string;
+  /** Optional servings override for this side, independent of the main. */
+  servings_override?: number | null;
+}
+
 export interface PlanSlot {
   /** ISO date (YYYY-MM-DD) the slot belongs to. */
   date: string;
@@ -51,6 +58,12 @@ export interface PlanSlot {
   leftovers_of?: string;
   /** Optional free-text note ("back late, low effort", etc.) */
   notes?: string;
+  /**
+   * Additional recipes served alongside the main. Used for sides (rice,
+   * salad, garlic bread). Each contributes its own ingredients to the
+   * shopping list independently. Empty/undefined means no sides.
+   */
+  sides?: SlotSide[];
 }
 
 export interface MealPlan {

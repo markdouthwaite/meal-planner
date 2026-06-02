@@ -18,6 +18,8 @@ type Action =
   | { type: 'DELETE_RECIPE'; id: string }
   | { type: 'SET_SLOT'; slot: PlanSlot }
   | { type: 'CLEAR_SLOT'; date: string; meal: 'dinner' }
+  | { type: 'ADD_SIDE_TO_SLOT'; date: string; recipeId: string }
+  | { type: 'REMOVE_SIDE_FROM_SLOT'; date: string; recipeId: string }
   | { type: 'CLEAR_PLAN' }
   | { type: 'ADD_SHOPPING_ITEM'; item: ShoppingItem }
   | { type: 'TOGGLE_SHOPPING_ITEM'; id: string }
@@ -157,16 +159,24 @@ function reducer(state: AppState, action: Action): AppState {
         recipes: state.recipes.filter(r => r.id !== action.id),
         currentPlan: {
           ...state.currentPlan,
-          // Clear the recipe from any slots that referenced it, and turn any
-          // leftover slots that pointed at those cook-slots back into empty.
+          // Clear the recipe from any slots that referenced it (main or
+          // sides), and turn any leftover slots that pointed at those
+          // cook-slots back into empty.
           slots: state.currentPlan.slots
             .filter(s => s.recipe_id !== action.id)
             .map(s => {
-              if (s.mode !== 'leftovers') return s;
+              const sides = s.sides
+                ? s.sides.filter(side => side.recipe_id !== action.id)
+                : undefined;
+              const next: PlanSlot = {
+                ...s,
+                sides: sides && sides.length > 0 ? sides : undefined,
+              };
+              if (next.mode !== 'leftovers') return next;
               const sourceStillExists = state.currentPlan.slots.some(
-                src => src.date === s.leftovers_of && src.recipe_id && src.recipe_id !== action.id,
+                src => src.date === next.leftovers_of && src.recipe_id && src.recipe_id !== action.id,
               );
-              return sourceStillExists ? s : { ...s, mode: 'cook' as const, recipe_id: undefined, leftovers_of: undefined };
+              return sourceStillExists ? next : { ...next, mode: 'cook' as const, recipe_id: undefined, leftovers_of: undefined };
             }),
         },
       };
@@ -188,6 +198,34 @@ function reducer(state: AppState, action: Action): AppState {
           slots: state.currentPlan.slots.filter(
             s => !(s.date === action.date && s.meal === action.meal),
           ),
+        },
+      };
+
+    case 'ADD_SIDE_TO_SLOT':
+      return {
+        ...state,
+        currentPlan: {
+          ...state.currentPlan,
+          slots: state.currentPlan.slots.map(s => {
+            if (s.date !== action.date) return s;
+            // Skip if already present — sides are unique per slot.
+            const existingSides = s.sides ?? [];
+            if (existingSides.some(side => side.recipe_id === action.recipeId)) return s;
+            return { ...s, sides: [...existingSides, { recipe_id: action.recipeId }] };
+          }),
+        },
+      };
+
+    case 'REMOVE_SIDE_FROM_SLOT':
+      return {
+        ...state,
+        currentPlan: {
+          ...state.currentPlan,
+          slots: state.currentPlan.slots.map(s => {
+            if (s.date !== action.date || !s.sides) return s;
+            const filtered = s.sides.filter(side => side.recipe_id !== action.recipeId);
+            return { ...s, sides: filtered.length > 0 ? filtered : undefined };
+          }),
         },
       };
 
