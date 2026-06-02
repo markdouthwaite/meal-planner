@@ -1,21 +1,26 @@
 import { useState, type FormEvent } from 'react';
 import { Lock, Eye, EyeOff } from 'lucide-react';
 import type { AuthApi } from './useAuth';
+import { ALLOWED_EMAIL } from './useAuth';
 
 interface LockScreenProps {
   signIn: AuthApi['signIn'];
 }
 
 export function LockScreen({ signIn }: LockScreenProps) {
+  const [email, setEmail] = useState(ALLOWED_EMAIL);
   const [password, setPassword] = useState('');
-  const [remember, setRemember] = useState(true);
   const [reveal, setReveal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [shake, setShake] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(e: FormEvent) {
+  async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const result = signIn(password, remember);
+    setSubmitting(true);
+    setError(null);
+    const result = await signIn(email, password);
+    setSubmitting(false);
     if (!result.ok) {
       setError(result.error);
       setShake(true);
@@ -42,8 +47,24 @@ export function LockScreen({ signIn }: LockScreenProps) {
             <Lock size={24} strokeWidth={2.25} />
           </div>
           <h1 className="text-xl font-bold text-gray-900">Family Meal Planner</h1>
-          <p className="text-sm text-gray-500 mt-1">Enter the password to continue.</p>
+          <p className="text-sm text-gray-500 mt-1">Sign in to continue.</p>
         </div>
+
+        <label htmlFor="lock-email" className="sr-only">
+          Email
+        </label>
+        <input
+          id="lock-email"
+          type="email"
+          value={email}
+          onChange={e => {
+            setEmail(e.target.value);
+            if (error) setError(null);
+          }}
+          placeholder="Email"
+          autoComplete="username"
+          className="w-full mb-3 px-4 py-3 rounded-xl border border-gray-200 bg-white text-base focus:outline-none focus:ring-2 focus:ring-brand-500 transition-shadow"
+        />
 
         <label htmlFor="lock-password" className="sr-only">
           Password
@@ -82,22 +103,12 @@ export function LockScreen({ signIn }: LockScreenProps) {
           </p>
         )}
 
-        <label className="flex items-center gap-2 mb-5 select-none cursor-pointer">
-          <input
-            type="checkbox"
-            checked={remember}
-            onChange={e => setRemember(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500"
-          />
-          <span className="text-sm text-gray-600">Remember me on this device</span>
-        </label>
-
         <button
           type="submit"
-          disabled={password.length === 0}
+          disabled={password.length === 0 || submitting}
           className="w-full py-3 rounded-xl bg-brand-600 text-white text-sm font-semibold hover:bg-brand-700 active:bg-brand-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Unlock
+          {submitting ? 'Signing in…' : 'Sign in'}
         </button>
       </form>
     </div>

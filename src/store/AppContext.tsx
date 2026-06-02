@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef, useCallback, useState } from 'react';
+import { Carrot } from 'lucide-react';
 import type { Recipe, MealPlan, ShoppingItem, PlanSlot } from '../types';
-import { getWeekStart, generateId, toLocalDateString, WEEK_DAYS } from '../utils/helpers';
-import { SEED_RECIPES } from '../utils/seedData';
+import { generateId } from '../utils/helpers';
+import { loadAppData, db } from './db';
 
 interface AppState {
   recipes: Recipe[];
@@ -9,7 +10,6 @@ interface AppState {
   shoppingItems: ShoppingItem[];
   removedRecipeItems: Set<string>;
   recipeItemQuantityOverrides: Record<string, number>;
-  seenSeedIds: string[];
 }
 
 type Action =
@@ -37,98 +37,12 @@ function getDefaultPlan(): MealPlan {
   };
 }
 
-const WD_INDEX: Record<string, number> = { mon: 0, tue: 1, wed: 2, thu: 3, fri: 4, sat: 5, sun: 6 };
-
-/**
- * Bring an arbitrary stored plan up to the current schema. Handles three
- * historical shapes:
- * - Phase 2 (current): { slots: PlanSlot[] } where each slot has `date`.
- * - Phase 1: slots had `day: WeekDay` instead of `date`. We translate the
- *   weekday to a date within the current Monday-Sunday week.
- * - Phase 0: no `slots`, just `recipes: PlanRecipe[]`. We distribute them
- *   one-per-day across this week starting Monday.
- *
- * Old fields (`week_start`) are dropped silently — the new model doesn't
- * anchor to a single week.
- */
-function migratePlan(raw: unknown): MealPlan {
-  const plan = raw as Partial<MealPlan> & {
-    recipes?: { recipe_id: string; servings_override: number | null }[];
-    slots?: (PlanSlot | { day?: string; date?: string; leftovers_of?: string; meal: 'dinner'; mode: PlanSlot['mode']; recipe_id?: string; servings_override: number | null; notes?: string })[];
-  };
-  const thisMonday = toLocalDateString(getWeekStart(new Date()));
-
-  // Helper: WeekDay key → ISO date for the current week.
-  const wdToISO = (wd: string | undefined): string | undefined => {
-    if (!wd) return undefined;
-    const idx = WD_INDEX[wd];
-    if (idx === undefined) return undefined;
-    const d = new Date(thisMonday + 'T00:00:00');
-    d.setDate(d.getDate() + idx);
-    return toLocalDateString(d);
-  };
-
-  if (Array.isArray(plan.slots)) {
-    // Phase 1 had `day`; Phase 2 has `date`. Normalise to `date`.
-    // Legacy 'out' mode is collapsed into 'skip' — they had the same
-    // behaviour (no recipe, no shopping) so we just keep one.
-    const slots: PlanSlot[] = plan.slots
-      .map(s => {
-        const mode = (s.mode as string) === 'out' ? 'skip' : s.mode;
-        if ('date' in s && typeof s.date === 'string') {
-          return { ...(s as PlanSlot), mode };
-        }
-        const date = wdToISO((s as { day?: string }).day);
-        if (!date) return null;
-        const leftovers_of =
-          'leftovers_of' in s && typeof s.leftovers_of === 'string' && WD_INDEX[s.leftovers_of] !== undefined
-            ? wdToISO(s.leftovers_of)
-            : (s as PlanSlot).leftovers_of;
-        return {
-          date,
-          meal: s.meal ?? 'dinner',
-          mode,
-          recipe_id: s.recipe_id,
-          servings_override: s.servings_override ?? null,
-          leftovers_of,
-          notes: s.notes,
-        } as PlanSlot;
-      })
-      .filter((s): s is PlanSlot => s !== null);
-    return {
-      id: plan.id ?? generateId(),
-      slots,
-      status: plan.status ?? 'planning',
-    };
-  }
-
-  // Phase 0: PlanRecipe[] → distribute one-per-day starting Monday this week.
-  const oldRecipes = Array.isArray(plan.recipes) ? plan.recipes : [];
-  const slots: PlanSlot[] = oldRecipes.slice(0, WEEK_DAYS.length).map((pr, i) => {
-    const d = new Date(thisMonday + 'T00:00:00');
-    d.setDate(d.getDate() + i);
-    return {
-      date: toLocalDateString(d),
-      meal: 'dinner',
-      mode: 'cook',
-      recipe_id: pr.recipe_id,
-      servings_override: pr.servings_override ?? null,
-    };
-  });
-  return {
-    id: plan.id ?? generateId(),
-    slots,
-    status: plan.status ?? 'planning',
-  };
-}
-
 const initialState: AppState = {
   recipes: [],
   currentPlan: getDefaultPlan(),
   shoppingItems: [],
   removedRecipeItems: new Set(),
   recipeItemQuantityOverrides: {},
-  seenSeedIds: [],
 };
 
 /** Upsert a slot keyed by (date, meal). */
@@ -272,6 +186,74 @@ function reducer(state: AppState, action: Action): AppState {
   }
 }
 
+/**
+ * Persist a mutating action to Supabase. The local reducer has already produced
+ * `next`; we issue the matching remote write so state survives reloads and
+ * syncs across devices. Best-effort and fire-and-forget — failures are logged,
+ * not surfaced (the optimistic local update has already happened).
+ */
+async function persistAction(
+  action: Action,
+  ctx: { householdId: string; planId: string; next: AppState },
+): Promise<void> {
+  const { householdId, planId, next } = ctx;
+  switch (action.type) {
+    case 'ADD_RECIPE':
+      await db.insertRecipe(action.recipe, householdId);
+      break;
+    case 'UPDATE_RECIPE':
+      await db.updateRecipe(action.recipe, householdId);
+      break;
+    case 'DELETE_RECIPE':
+      await db.deleteRecipe(action.id);
+      // The reducer also rewrites plan slots (removing/converting leftovers),
+      // so resync the plan's slots to match.
+      await db.replaceSlots(planId, next.currentPlan.slots);
+      break;
+    case 'SET_SLOT':
+      await db.upsertSlot(action.slot, planId);
+      break;
+    case 'CLEAR_SLOT':
+      await db.deleteSlot(planId, action.date, action.meal);
+      break;
+    case 'CLEAR_PLAN':
+      await db.clearSlots(planId);
+      break;
+    case 'ADD_SHOPPING_ITEM':
+      await db.insertShoppingItem(action.item, householdId);
+      break;
+    case 'TOGGLE_SHOPPING_ITEM': {
+      const item = next.shoppingItems.find(i => i.id === action.id);
+      if (item) await db.updateShoppingItem(action.id, { checked: item.checked });
+      break;
+    }
+    case 'REMOVE_SHOPPING_ITEM':
+      await db.deleteShoppingItem(action.id);
+      break;
+    case 'SET_MANUAL_ITEM_QUANTITY': {
+      const item = next.shoppingItems.find(i => i.id === action.id);
+      if (item) await db.updateShoppingItem(action.id, { quantity: item.quantity });
+      break;
+    }
+    case 'TOGGLE_REMOVED_RECIPE_ITEM':
+      await db.setRemovedItem(householdId, action.key, next.removedRecipeItems.has(action.key));
+      break;
+    case 'SET_RECIPE_ITEM_QUANTITY':
+      await db.setOverride(householdId, action.key, action.quantity);
+      break;
+    case 'RESET_RECIPE_ITEM_QUANTITY':
+      await db.deleteOverride(householdId, action.key);
+      break;
+    case 'CLEAR_SHOPPING_LIST':
+      await db.clearShoppingItems(householdId);
+      await db.replaceRemovedItems(householdId, Array.from(next.removedRecipeItems));
+      await db.clearOverrides(householdId);
+      break;
+    case 'LOAD_STATE':
+      break;
+  }
+}
+
 interface AppContextValue {
   state: AppState;
   dispatch: React.Dispatch<Action>;
@@ -279,52 +261,71 @@ interface AppContextValue {
 
 const AppContext = createContext<AppContextValue | null>(null);
 
-const STORAGE_KEY = 'meal-planner-state';
-
 export function AppProvider({ children }: { children: React.ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, baseDispatch] = useReducer(reducer, initialState);
+  const [ready, setReady] = useState(false);
 
+  // Set once the household/plan are known; used by the persistence wrapper.
+  const householdRef = useRef<string | null>(null);
+  const planRef = useRef<string | null>(null);
+  // Always-current state so the dispatch wrapper can compute the next state.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
+  // Initial load from Supabase (the user is already authenticated — this
+  // provider only mounts inside AuthGate).
   useEffect(() => {
-    let loaded: AppState = initialState;
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        parsed.removedRecipeItems = new Set(parsed.removedRecipeItems ?? []);
-        parsed.recipeItemQuantityOverrides = parsed.recipeItemQuantityOverrides ?? {};
-        parsed.seenSeedIds = parsed.seenSeedIds ?? [];
-        parsed.currentPlan = migratePlan(parsed.currentPlan ?? {});
-        loaded = parsed;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await loadAppData();
+        if (cancelled) return;
+        householdRef.current = data.householdId;
+        planRef.current = data.planId;
+        baseDispatch({
+          type: 'LOAD_STATE',
+          state: {
+            recipes: data.recipes,
+            currentPlan: data.plan,
+            shoppingItems: data.shoppingItems,
+            removedRecipeItems: new Set(data.removedRecipeItems),
+            recipeItemQuantityOverrides: data.recipeItemQuantityOverrides,
+          },
+        });
+      } catch (err) {
+        console.error('[store] failed to load data', err);
+      } finally {
+        if (!cancelled) setReady(true);
       }
-    } catch {
-      // ignore — fall through with initialState
-    }
-
-    const seenIds = new Set(loaded.seenSeedIds);
-    const existingTitles = new Set(loaded.recipes.map(r => r.title.toLowerCase()));
-    const seedsToAdd = SEED_RECIPES.filter(s =>
-      !seenIds.has(s.id) && !existingTitles.has(s.title.toLowerCase()),
-    );
-    const allCurrentSeedIds = SEED_RECIPES.map(s => s.id);
-    const needsSeenUpdate = allCurrentSeedIds.some(id => !seenIds.has(id));
-    const synced: AppState = (seedsToAdd.length === 0 && !needsSeenUpdate)
-      ? loaded
-      : {
-          ...loaded,
-          recipes: [...loaded.recipes, ...seedsToAdd],
-          seenSeedIds: Array.from(new Set([...loaded.seenSeedIds, ...allCurrentSeedIds])),
-        };
-
-    dispatch({ type: 'LOAD_STATE', state: synced });
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    const serialisable = {
-      ...state,
-      removedRecipeItems: Array.from(state.removedRecipeItems),
-    };
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(serialisable));
-  }, [state]);
+  // Dispatch wrapper: apply the action locally (optimistic), then mirror the
+  // write to Supabase. Computing `next` here keeps the reducer pure.
+  const dispatch = useCallback<React.Dispatch<Action>>(action => {
+    if (action.type !== 'LOAD_STATE') {
+      const next = reducer(stateRef.current, action);
+      const householdId = householdRef.current;
+      const planId = planRef.current;
+      if (householdId && planId) {
+        void persistAction(action, { householdId, planId, next }).catch(err =>
+          console.error('[store] failed to persist', action.type, err),
+        );
+      }
+    }
+    baseDispatch(action);
+  }, []);
+
+  if (!ready) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Carrot size={28} className="text-brand-600 animate-pulse" strokeWidth={2.25} />
+      </div>
+    );
+  }
 
   return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
 }

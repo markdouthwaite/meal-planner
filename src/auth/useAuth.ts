@@ -1,72 +1,66 @@
 import { useCallback, useEffect, useState } from 'react';
+import type { Session } from '@supabase/supabase-js';
+import { supabase } from '../lib/supabase';
 
-const STORAGE_KEY = 'mp.auth.v1';
-const EXPECTED_PASSWORD = (import.meta.env.VITE_APP_PASSWORD as string | undefined) ?? 'meals';
+/**
+ * The single permitted user for now. Real enforcement is in Supabase (only this
+ * user exists and signups are disabled); this constant is defence-in-depth on
+ * the client — any other authenticated email is immediately signed out.
+ */
+export const ALLOWED_EMAIL = 'hello@douthwaite-green.com';
 
-if (!import.meta.env.VITE_APP_PASSWORD && import.meta.env.PROD) {
-  // Production build with no password configured — surface a clear warning.
-  console.warn(
-    '[auth] VITE_APP_PASSWORD is not set; falling back to the default password. ' +
-    'Set VITE_APP_PASSWORD in your Vercel project settings and redeploy.',
-  );
-}
-
-function readStoredToken(): boolean {
-  try {
-    if (localStorage.getItem(STORAGE_KEY) === 'ok') return true;
-    if (sessionStorage.getItem(STORAGE_KEY) === 'ok') return true;
-  } catch {
-    // Storage may be unavailable (private mode, etc.) — treat as logged out.
-  }
-  return false;
-}
+export type AuthStatus = 'loading' | 'signed-in' | 'signed-out';
 
 export interface AuthApi {
-  authenticated: boolean;
-  signIn: (password: string, remember: boolean) => { ok: true } | { ok: false; error: string };
-  signOut: () => void;
+  status: AuthStatus;
+  email: string | null;
+  signIn: (email: string, password: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  signOut: () => Promise<void>;
 }
 
 export function useAuth(): AuthApi {
-  const [authenticated, setAuthenticated] = useState<boolean>(() => readStoredToken());
+  const [status, setStatus] = useState<AuthStatus>('loading');
+  const [email, setEmail] = useState<string | null>(null);
 
-  // Keep tabs in sync — if another tab logs out, this one follows.
   useEffect(() => {
-    function onStorage(e: StorageEvent) {
-      if (e.key === STORAGE_KEY) setAuthenticated(readStoredToken());
-    }
-    window.addEventListener('storage', onStorage);
-    return () => window.removeEventListener('storage', onStorage);
-  }, []);
+    let active = true;
 
-  const signIn = useCallback((password: string, remember: boolean) => {
-    if (password !== EXPECTED_PASSWORD) {
-      return { ok: false, error: 'Incorrect password.' } as const;
-    }
-    try {
-      if (remember) {
-        localStorage.setItem(STORAGE_KEY, 'ok');
-        sessionStorage.removeItem(STORAGE_KEY);
-      } else {
-        sessionStorage.setItem(STORAGE_KEY, 'ok');
-        localStorage.removeItem(STORAGE_KEY);
+    function apply(session: Session | null) {
+      if (!active) return;
+      const userEmail = session?.user.email?.toLowerCase() ?? null;
+      if (session && userEmail !== ALLOWED_EMAIL) {
+        // Authenticated, but not the permitted user — reject and sign out.
+        void supabase.auth.signOut();
+        setStatus('signed-out');
+        setEmail(null);
+        return;
       }
-    } catch {
-      // Best-effort; still mark this tab as authenticated.
+      setStatus(session ? 'signed-in' : 'signed-out');
+      setEmail(userEmail);
     }
-    setAuthenticated(true);
-    return { ok: true } as const;
+
+    supabase.auth.getSession().then(({ data }) => apply(data.session));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => apply(session));
+
+    return () => {
+      active = false;
+      sub.subscription.unsubscribe();
+    };
   }, []);
 
-  const signOut = useCallback(() => {
-    try {
-      localStorage.removeItem(STORAGE_KEY);
-      sessionStorage.removeItem(STORAGE_KEY);
-    } catch {
-      // Ignore.
+  const signIn = useCallback(async (emailInput: string, password: string) => {
+    const normalized = emailInput.trim().toLowerCase();
+    if (normalized !== ALLOWED_EMAIL) {
+      return { ok: false as const, error: 'This app is private.' };
     }
-    setAuthenticated(false);
+    const { error } = await supabase.auth.signInWithPassword({ email: normalized, password });
+    if (error) return { ok: false as const, error: error.message };
+    return { ok: true as const };
   }, []);
 
-  return { authenticated, signIn, signOut };
+  const signOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
+
+  return { status, email, signIn, signOut };
 }

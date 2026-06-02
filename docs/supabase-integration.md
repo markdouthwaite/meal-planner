@@ -6,11 +6,15 @@ accounts and shared, multi-device data.
 
 **Decisions taken** (locked in for this work):
 
-- **Auth**: real Supabase Auth accounts (replacing the shared password gate).
+- **Auth**: real Supabase Auth accounts (email + password), replacing the shared
+  password gate. For now the app permits a **single user**,
+  `hello@douthwaite-green.com` — enforced both client-side and in the dashboard.
 - **Data scope**: per-household *workspaces* — each household has isolated data,
   and users join a household and share its recipes, plans, and shopping list.
-- **This first step**: schema + plan only. The app is **not** rewired yet; you
-  run the SQL, then we wire the client in the next pass.
+
+> **Status:** the schema (Step 1) is applied, and the client is now wired
+> (Steps 2–4 below are done in code). Remaining manual setup is the dashboard
+> auth config in Step 2 — create the single user and disable signups.
 
 ---
 
@@ -46,15 +50,20 @@ creator of a household its owner automatically.
 After running it, check **Table Editor** — you should see the eight tables, and
 **Authentication → Policies** should show RLS enabled with policies on each.
 
-## Step 2 — Configure Auth in the Supabase dashboard
+## Step 2 — Configure Auth in the Supabase dashboard (single user)
 
-1. **Authentication → Providers**: enable **Email**. For a low-friction family
-   app, turn on **Magic Link** (passwordless) and/or email+password.
-2. **Authentication → URL Configuration**: add your site URLs to
-   *Redirect URLs* — `http://localhost:5173` for local dev and your Vercel
-   production URL.
-3. (Optional) Disable "Confirm email" for faster onboarding during development;
-   re-enable for production.
+The app signs in with **email + password** and currently permits exactly one
+user. To set that up:
+
+1. **Authentication → Providers → Email**: enable it, and turn **off**
+   "Allow new users to sign up" (so the app stays single-user). Email
+   confirmation can be left off since you create the user yourself.
+2. **Authentication → Users → Add user**: create
+   `hello@douthwaite-green.com` with a password. This is the only account
+   that can sign in — the client also rejects any other email
+   (`ALLOWED_EMAIL` in `src/auth/useAuth.ts`).
+3. To allow more users later: re-enable signups (or add users in the
+   dashboard) and widen/remove the `ALLOWED_EMAIL` check.
 
 ## Step 3 — Wire up local env
 
@@ -76,9 +85,20 @@ redeploy.
 
 ---
 
-## Step 4 onward — Client wiring (next pass, after the SQL is live)
+## Step 4 — Client wiring (implemented)
 
-This is the plan for the code changes; nothing here is implemented yet.
+This describes the code changes, which are now in place:
+
+- `src/lib/supabase.ts` — shared Supabase client.
+- `src/auth/*` — email+password sign-in locked to `ALLOWED_EMAIL`.
+- `src/store/db.ts` — household bootstrap, initial load, and per-action writes.
+- `src/store/AppContext.tsx` — loads from Supabase on sign-in and mirrors each
+  reducer action to the DB; the component-facing API is unchanged.
+- `generateId()` now returns UUIDs; starter recipes seed once per household.
+
+Notes on what was deferred: Realtime cross-device sync and a one-time
+localStorage→Supabase import are **not** implemented yet (see below). Original
+design notes follow.
 
 ### 4a. Supabase client + auth
 

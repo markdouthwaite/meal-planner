@@ -3,19 +3,6 @@ import { generateId } from './helpers';
 
 const now = new Date().toISOString();
 
-/**
- * Stable, deterministic ID for a seed recipe. The `seed:` prefix keeps it
- * distinguishable from user-generated IDs (which come from `generateId()`),
- * and the title-slug means the same recipe gets the same ID across deploys
- * — so we can tell new seeds from already-seen ones in AppContext.
- */
-function seedRecipeId(title: string): string {
-  return 'seed:' + title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '');
-}
-
 const SEED_RECIPES_RAW: Recipe[] = [
   {
     id: generateId(),
@@ -922,11 +909,8 @@ const SEED_RECIPES_RAW: Recipe[] = [
 ];
 
 /**
- * Public seed list with stable IDs. The raw entries above use `generateId()`
- * for convenience; we overwrite the recipe ID here so the same recipe gets
- * the same ID across module loads and deploys.
+ * Public seed list. Starter recipes are inserted once per household at creation
+ * time (see src/store/db.ts); each entry keeps its `generateId()` UUID so it
+ * drops straight into Supabase.
  */
-export const SEED_RECIPES: Recipe[] = SEED_RECIPES_RAW.map(r => ({
-  ...r,
-  id: seedRecipeId(r.title),
-}));
+export const SEED_RECIPES: Recipe[] = SEED_RECIPES_RAW;

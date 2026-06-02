@@ -17,7 +17,16 @@ export const WEEK_DAY_SHORT_LABELS: Record<WeekDay, string> = {
 };
 
 export function generateId(): string {
-  return Math.random().toString(36).slice(2) + Date.now().toString(36);
+  // UUIDs so client-generated ids drop straight into Supabase uuid columns.
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  // Fallback for older browsers without crypto.randomUUID.
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 /** Returns the Monday of the week containing the given date */

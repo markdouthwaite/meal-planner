@@ -7,7 +7,7 @@ A mobile-first web app for planning weekly meals, managing a recipe collection, 
 - **React + Vite + TypeScript**
 - **Tailwind CSS** for styling
 - **React Router** for navigation
-- **localStorage** for persistence (Supabase-ready)
+- **Supabase** (Postgres + Auth) for persistence and accounts
 
 ## Getting Started
 
@@ -26,7 +26,7 @@ npm run build
 
 ## Architecture
 
-All state is managed in `src/store/AppContext.tsx` using React Context + `useReducer`, persisted to `localStorage`. The app is structured to drop in Supabase as a backend by replacing the local dispatch calls with Supabase queries.
+All state is managed in `src/store/AppContext.tsx` using React Context + `useReducer`. On sign-in the store loads the household's data from Supabase, and each reducer action is mirrored to the database (`src/store/db.ts`). Components only ever touch `useAppState` / `useAppDispatch`, so the UI is unaware of the backend.
 
 ```
 src/
@@ -36,7 +36,9 @@ src/
     plan/         # PlanPage, PlanMealCard, MealTypeTracker
     shopping/     # ShoppingList
     ui/           # Modal, EmptyState, MealTypeBadge, RecipeImage
-  store/          # AppContext (global state)
+  auth/           # Supabase email+password sign-in (single permitted user)
+  lib/            # supabase client
+  store/          # AppContext (global state) + db (Supabase data layer)
   types/          # TypeScript types
   utils/          # helpers, shopping aggregation, seed data, useIsMobile
 ```
