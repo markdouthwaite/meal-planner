@@ -22,6 +22,8 @@ export function PlanPage() {
   const { currentPlan, recipes } = useAppState();
   const dispatch = useAppDispatch();
   const [pickerForDate, setPickerForDate] = useState<string | null>(null);
+  /** What the picker is filling: the slot's main recipe, or a new side. */
+  const [pickerMode, setPickerMode] = useState<'main' | 'side'>('main');
   const [actionsForDate, setActionsForDate] = useState<string | null>(null);
   const [actionsInitialView, setActionsInitialView] = useState<'pickingSource' | undefined>(undefined);
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
@@ -83,19 +85,25 @@ export function PlanPage() {
   function handlePickRecipe(recipeId: string) {
     const date = pickerForDate;
     if (!date) return;
-    const existing = slotByDate.get(date);
-    dispatch({
-      type: 'SET_SLOT',
-      slot: {
-        date,
-        meal: MEAL,
-        mode: 'cook',
-        recipe_id: recipeId,
-        servings_override: existing?.servings_override ?? null,
-        notes: existing?.notes,
-      },
-    });
+    if (pickerMode === 'side') {
+      dispatch({ type: 'ADD_SIDE_TO_SLOT', date, recipeId });
+    } else {
+      const existing = slotByDate.get(date);
+      dispatch({
+        type: 'SET_SLOT',
+        slot: {
+          date,
+          meal: MEAL,
+          mode: 'cook',
+          recipe_id: recipeId,
+          servings_override: existing?.servings_override ?? null,
+          notes: existing?.notes,
+          sides: existing?.sides,
+        },
+      });
+    }
     setPickerForDate(null);
+    setPickerMode('main');
   }
 
   function handleClearPlan() {
@@ -188,11 +196,15 @@ export function PlanPage() {
               if (!srcRecipe) return undefined;
               return { recipe: srcRecipe, date: slot.leftovers_of };
             })();
+            const sideTitles = slot?.sides
+              ?.map(s => recipeById.get(s.recipe_id)?.title)
+              .filter((t): t is string => !!t);
             return (
               <SlotCard
                 key={date}
                 date={date}
                 slot={slot}
+                sideTitles={sideTitles}
                 recipe={recipe}
                 leftoverSource={leftoverSource}
                 isToday={date === today}
@@ -218,8 +230,8 @@ export function PlanPage() {
       {/* Recipe picker for a slot */}
       <Modal
         open={pickerForDate !== null}
-        onClose={() => setPickerForDate(null)}
-        title={pickerForDate ? `${formatDayLong(pickerForDate)} — pick a recipe` : ''}
+        onClose={() => { setPickerForDate(null); setPickerMode('main'); }}
+        title={pickerForDate ? `${formatDayLong(pickerForDate)} — ${pickerMode === 'side' ? 'pick a side' : 'pick a recipe'}` : ''}
         fullScreen={isMobile}
         wide
       >
@@ -247,7 +259,15 @@ export function PlanPage() {
           recipe={activeRecipe}
           cookSlots={cookSlots}
           initialView={actionsInitialView}
+          recipeById={recipeById}
           onPickRecipe={() => {
+            setPickerMode('main');
+            setPickerForDate(actionsForDate);
+            setActionsForDate(null);
+            setActionsInitialView(undefined);
+          }}
+          onAddSide={() => {
+            setPickerMode('side');
             setPickerForDate(actionsForDate);
             setActionsForDate(null);
             setActionsInitialView(undefined);

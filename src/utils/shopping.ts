@@ -20,19 +20,10 @@ export function aggregateShoppingList(
 ): AggregatedItem[] {
   const map = new Map<string, { name: string; quantity: number; unit: string }>();
 
-  for (const slot of plan.slots) {
-    // Only cook-mode slots add to the shopping list. Leftovers, eat-out and
-    // skip contribute nothing — the cook slot's servings_override should be
-    // doubled (via "cook double") to cover any leftover days.
-    if (slot.mode !== 'cook' || !slot.recipe_id) continue;
-    const recipe = recipes.find(r => r.id === slot.recipe_id);
-    if (!recipe) continue;
-
-    const scale =
-      slot.servings_override != null
-        ? slot.servings_override / recipe.servings
-        : 1;
-
+  function addRecipeIngredients(recipeId: string, override: number | null | undefined) {
+    const recipe = recipes.find(r => r.id === recipeId);
+    if (!recipe) return;
+    const scale = override != null ? override / recipe.servings : 1;
     for (const ing of recipe.ingredients) {
       const normName = ing.name.trim().toLowerCase();
       const key = `${normName}||${ing.unit}`;
@@ -45,6 +36,23 @@ export function aggregateShoppingList(
           quantity: ing.quantity * scale,
           unit: ing.unit,
         });
+      }
+    }
+  }
+
+  for (const slot of plan.slots) {
+    // Cook main: contributes the main recipe. Leftover / skip contribute
+    // nothing from the main (the cook day's servings_override should be
+    // doubled via "cook double" to cover any leftover days).
+    if (slot.mode === 'cook' && slot.recipe_id) {
+      addRecipeIngredients(slot.recipe_id, slot.servings_override);
+    }
+    // Sides contribute their own ingredients regardless of slot mode (we
+    // allow sides on leftover slots too — e.g. fresh salad with re-heated
+    // pasta). Skip slots can't have sides.
+    if (slot.mode !== 'skip' && slot.sides) {
+      for (const side of slot.sides) {
+        addRecipeIngredients(side.recipe_id, side.servings_override ?? null);
       }
     }
   }

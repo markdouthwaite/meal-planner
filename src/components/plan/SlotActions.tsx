@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, Eye, MinusCircle, PlusCircle, Replace,
+  ChevronLeft, ChevronRight, Eye, MinusCircle, Plus, PlusCircle, Replace,
   RotateCw, Trash2, X, BookOpen,
 } from 'lucide-react';
 import type { PlanSlot, Recipe } from '../../types';
@@ -20,8 +20,12 @@ interface SlotActionsProps {
   cookSlots: { date: string; recipe: Recipe }[];
   /** Caller opens the recipe picker for this date. */
   onPickRecipe: () => void;
+  /** Caller opens the recipe picker to add a side to this date's slot. */
+  onAddSide?: () => void;
   /** Caller opens the read-only recipe detail view. */
   onViewRecipe?: () => void;
+  /** Resolves side recipe ids to titles for display. */
+  recipeById: Map<string, Recipe>;
   /** Optional starting sub-screen (used for the "Leftover" quick-action shortcut). */
   initialView?: 'pickingSource';
 }
@@ -34,7 +38,7 @@ const MEAL = 'dinner' as const;
  * actions depend on the slot's mode.
  */
 export function SlotActions({
-  open, onClose, date, slot, recipe, cookSlots, onPickRecipe, onViewRecipe, initialView,
+  open, onClose, date, slot, recipe, cookSlots, onPickRecipe, onAddSide, onViewRecipe, recipeById, initialView,
 }: SlotActionsProps) {
   const dispatch = useAppDispatch();
   const [editingNote, setEditingNote] = useState(false);
@@ -215,6 +219,13 @@ export function SlotActions({
               <ActionRow icon={<Eye size={16} />} label="View recipe" onClick={() => { onViewRecipe(); onClose(); }} />
             )}
             <ActionRow icon={<Replace size={16} />} label="Change recipe" onClick={() => { onPickRecipe(); onClose(); }} />
+            <SidesSection
+              date={date}
+              sides={slot.sides}
+              recipeById={recipeById}
+              onAddSide={onAddSide}
+              onClose={onClose}
+            />
             <ActionRow icon={<RotateCw size={16} />} label="Make this leftovers of…" onClick={() => setMode('leftovers')} />
             <ActionRow icon={<X size={16} />} label="Skip this meal" onClick={() => setMode('skip')} />
           </>
@@ -233,6 +244,13 @@ export function SlotActions({
               onClick={() => setPickingSource(true)}
             />
             <ActionRow icon={<Replace size={16} />} label="Cook fresh instead" onClick={() => { onPickRecipe(); onClose(); }} />
+            <SidesSection
+              date={date}
+              sides={slot.sides}
+              recipeById={recipeById}
+              onAddSide={onAddSide}
+              onClose={onClose}
+            />
             <ActionRow icon={<X size={16} />} label="Skip this meal" onClick={() => setMode('skip')} />
           </>
         )}
@@ -306,6 +324,59 @@ function modeLabel(m: PlanSlot['mode']): string {
     case 'leftovers': return 'Leftovers';
     case 'skip': return 'Skipping';
   }
+}
+
+// ---------------------------------------------------------------------------
+// Sides — list of attached side dishes + "Add a side" trigger.
+// ---------------------------------------------------------------------------
+
+interface SidesSectionProps {
+  date: string;
+  sides: PlanSlot['sides'];
+  recipeById: Map<string, Recipe>;
+  onAddSide?: () => void;
+  onClose: () => void;
+}
+
+function SidesSection({ date, sides, recipeById, onAddSide, onClose }: SidesSectionProps) {
+  const dispatch = useAppDispatch();
+  const list = sides ?? [];
+
+  return (
+    <div className="py-2 border-t border-gray-100 mt-1">
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-gray-400 px-4 mb-1">Sides</p>
+      {list.length === 0 ? (
+        <p className="text-xs text-gray-400 px-4 pb-2">None — add a side dish to round out the meal.</p>
+      ) : (
+        <ul className="mb-1">
+          {list.map(side => {
+            const sideRecipe = recipeById.get(side.recipe_id);
+            return (
+              <li key={side.recipe_id} className="flex items-center justify-between gap-2 px-4 py-2">
+                <span className="text-sm text-gray-800 truncate">{sideRecipe?.title ?? 'Recipe missing'}</span>
+                <button
+                  onClick={() => dispatch({ type: 'REMOVE_SIDE_FROM_SLOT', date, recipeId: side.recipe_id })}
+                  className="p-1.5 rounded-md text-gray-400 hover:text-red-500 hover:bg-red-50 flex-shrink-0"
+                  aria-label={`Remove ${sideRecipe?.title ?? 'side'}`}
+                >
+                  <X size={14} />
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {onAddSide && (
+        <button
+          onClick={() => { onAddSide(); onClose(); }}
+          className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-brand-600 hover:bg-brand-50 transition-colors"
+        >
+          <Plus size={16} />
+          <span className="font-medium">Add a side</span>
+        </button>
+      )}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------------------
