@@ -1,4 +1,4 @@
-import { Users, PlusCircle } from 'lucide-react';
+import { Users, PlusCircle, Globe, Library } from 'lucide-react';
 import type { Recipe } from '../../types';
 import { MealTypeBadge } from '../ui/MealTypeBadge';
 import { RecipeImage } from '../ui/RecipeImage';
@@ -6,6 +6,10 @@ import { RecipeImage } from '../ui/RecipeImage';
 interface RecipeCardProps {
   recipe: Recipe;
   inPlan: boolean;
+  /** Global base recipe (read-only library). */
+  isBase?: boolean;
+  /** Shared globally by its owning household. */
+  isShared?: boolean;
   /**
    * If provided, renders an Add button using `addLabel`. If not, the card is
    * tap-to-open only (used in the browse-library Recipes tab where there's no
@@ -16,19 +20,30 @@ interface RecipeCardProps {
   onClick: () => void;
 }
 
-export function RecipeCard({ recipe, inPlan, onAddToPlan, addLabel = 'Add', onClick }: RecipeCardProps) {
+export function RecipeCard({ recipe, inPlan, isBase, isShared, onAddToPlan, addLabel = 'Add', onClick }: RecipeCardProps) {
   return (
     <div
       className="group bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden flex flex-col cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98]"
       onClick={onClick}
     >
-      <RecipeImage
-        src={recipe.image}
-        alt={recipe.title}
-        title={recipe.title}
-        mealTypes={recipe.meal_type}
-        className="w-full aspect-[16/9] sm:aspect-auto sm:h-44"
-      />
+      <div className="relative">
+        <RecipeImage
+          src={recipe.image}
+          alt={recipe.title}
+          title={recipe.title}
+          mealTypes={recipe.meal_type}
+          className="w-full aspect-[16/9] sm:aspect-auto sm:h-44"
+        />
+        {isBase ? (
+          <span className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/90 text-gray-600 text-[10px] font-semibold shadow-sm">
+            <Library size={10} /> Base
+          </span>
+        ) : isShared ? (
+          <span className="absolute top-2 left-2 flex items-center gap-1 px-2 py-0.5 rounded-full bg-white/90 text-brand-600 text-[10px] font-semibold shadow-sm">
+            <Globe size={10} /> Shared
+          </span>
+        ) : null}
+      </div>
 
       <div className="p-4 flex flex-col flex-1">
         {recipe.meal_type.length > 0 && (

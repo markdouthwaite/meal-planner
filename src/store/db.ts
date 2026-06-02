@@ -8,7 +8,6 @@ import type {
   ShoppingItem,
   SlotMode,
 } from '../types';
-import { SEED_RECIPES } from '../utils/seedData';
 
 /**
  * Supabase data-access layer for the meal planner.
@@ -27,6 +26,8 @@ const DEFAULT_HOUSEHOLD_NAME = 'Our Household';
 // ---------------------------------------------------------------------------
 interface RecipeRow {
   id: string;
+  household_id: string | null;
+  is_shared: boolean;
   title: string;
   description: string | null;
   image: string | null;
@@ -76,13 +77,18 @@ function rowToRecipe(r: RecipeRow): Recipe {
     tags: r.tags ?? [],
     created_at: r.created_at,
     updated_at: r.updated_at,
+    household_id: r.household_id,
+    is_shared: r.is_shared,
   };
 }
 
 function recipeToRow(r: Recipe, householdId: string) {
   return {
     id: r.id,
+    // Client only ever writes its own recipes (RLS enforces this), so the
+    // owning household is always the current one.
     household_id: householdId,
+    is_shared: r.is_shared ?? false,
     title: r.title,
     description: r.description,
     image: r.image ?? null,
@@ -159,15 +165,19 @@ export interface LoadedData {
   recipeItemQuantityOverrides: Record<string, number>;
 }
 
-/** Find the signed-in user's household, creating (and seeding) one if needed. */
-async function getOrCreateHousehold(): Promise<{ id: string; isNew: boolean }> {
+/**
+ * Find the signed-in user's household, creating one if needed. Starter recipes
+ * are NOT seeded here — they exist once as global base recipes (household_id
+ * IS NULL, see supabase/seed_recipes.sql) and are visible to every household.
+ */
+async function getOrCreateHousehold(): Promise<string> {
   const { data: memberships, error } = await supabase
     .from('household_members')
     .select('household_id')
     .limit(1);
   if (error) throw error;
   if (memberships && memberships.length > 0) {
-    return { id: memberships[0].household_id as string, isNew: false };
+    return memberships[0].household_id as string;
   }
 
   // No household yet — create one. The DB trigger adds the creator as owner.
@@ -177,14 +187,7 @@ async function getOrCreateHousehold(): Promise<{ id: string; isNew: boolean }> {
     .select('id')
     .single();
   if (insErr) throw insErr;
-  return { id: created.id as string, isNew: true };
-}
-
-/** Seed starter recipes into a brand-new household (once). */
-async function seedHousehold(householdId: string): Promise<void> {
-  const rows = SEED_RECIPES.map(r => recipeToRow(r, householdId));
-  const { error } = await supabase.from('recipes').insert(rows);
-  if (error) throw error;
+  return created.id as string;
 }
 
 /** Get the household's active plan, creating one if none exists. */
@@ -210,21 +213,20 @@ async function getOrCreatePlan(householdId: string): Promise<string> {
 
 /** Load everything the app needs for the signed-in user's household. */
 export async function loadAppData(): Promise<LoadedData> {
-  const household = await getOrCreateHousehold();
-  if (household.isNew) {
-    await seedHousehold(household.id);
-  }
-  const planId = await getOrCreatePlan(household.id);
+  const householdId = await getOrCreateHousehold();
+  const planId = await getOrCreatePlan(householdId);
 
   const [recipesRes, slotsRes, shoppingRes, removedRes, overridesRes] = await Promise.all([
-    supabase.from('recipes').select('*').eq('household_id', household.id),
+    // No household filter: RLS returns base recipes + globally-shared recipes +
+    // this household's own recipes.
+    supabase.from('recipes').select('*'),
     supabase.from('plan_slots').select('*').eq('plan_id', planId),
-    supabase.from('shopping_items').select('*').eq('household_id', household.id),
-    supabase.from('removed_recipe_items').select('item_key').eq('household_id', household.id),
+    supabase.from('shopping_items').select('*').eq('household_id', householdId),
+    supabase.from('removed_recipe_items').select('item_key').eq('household_id', householdId),
     supabase
       .from('recipe_item_overrides')
       .select('item_key, quantity')
-      .eq('household_id', household.id),
+      .eq('household_id', householdId),
   ]);
 
   for (const res of [recipesRes, slotsRes, shoppingRes, removedRes, overridesRes]) {
@@ -237,7 +239,7 @@ export async function loadAppData(): Promise<LoadedData> {
   }
 
   return {
-    householdId: household.id,
+    householdId,
     planId,
     recipes: ((recipesRes.data ?? []) as RecipeRow[]).map(rowToRecipe),
     plan: {

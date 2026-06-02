@@ -26,6 +26,14 @@ export interface Recipe {
   tags: string[];
   created_at: string;
   updated_at: string;
+  /**
+   * Owning household. `null`/undefined means a global *base* recipe (seeded,
+   * visible to everyone, read-only). A value means a user-created recipe owned
+   * by that household — only the owner can edit or delete it.
+   */
+  household_id?: string | null;
+  /** When true, an owned recipe is visible to all households (read-only to others). */
+  is_shared?: boolean;
 }
 
 /**

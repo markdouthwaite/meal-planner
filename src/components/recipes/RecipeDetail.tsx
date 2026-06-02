@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Edit2, Trash2, ExternalLink, Users, ArrowLeft } from 'lucide-react';
+import { Edit2, Trash2, ExternalLink, Users, ArrowLeft, Globe, Library } from 'lucide-react';
 import type { Recipe } from '../../types';
 import { MealTypeBadge } from '../ui/MealTypeBadge';
 import { RecipeImage } from '../ui/RecipeImage';
@@ -13,6 +13,12 @@ interface RecipeDetailProps {
   onClose: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  /** When provided (owner only), toggles whether this recipe is shared globally. */
+  onToggleShare?: () => void;
+  /** Global base recipe (read-only library). */
+  isBase?: boolean;
+  /** Shared globally by its owning household. */
+  isShared?: boolean;
   inPlan: boolean;
   /** When omitted, the "Add to Plan" CTA is hidden (browse-library mode). */
   onAddToPlan?: () => void;
@@ -21,7 +27,8 @@ interface RecipeDetailProps {
 }
 
 export function RecipeDetail({
-  recipe, open, onClose, onEdit, onDelete, inPlan, onAddToPlan, addLabel = 'Add to Plan',
+  recipe, open, onClose, onEdit, onDelete, onToggleShare, isBase, isShared,
+  inPlan, onAddToPlan, addLabel = 'Add to Plan',
 }: RecipeDetailProps) {
   const [tab, setTab] = useState<'ingredients' | 'method'>('ingredients');
   const isMobile = useIsMobile();
@@ -69,6 +76,20 @@ export function RecipeDetail({
         )}
 
         <h2 className="text-2xl font-bold text-gray-900 mb-1">{recipe.title}</h2>
+
+        {(isBase || isShared) && (
+          <div className="mb-2">
+            {isBase ? (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 text-xs font-medium">
+                <Library size={11} /> Base recipe · read-only
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-brand-50 text-brand-700 text-xs font-medium">
+                <Globe size={11} /> Shared with all households
+              </span>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
           <span className="flex items-center gap-1"><Users size={14} /> {recipe.servings} servings</span>
@@ -174,6 +195,19 @@ export function RecipeDetail({
               className="flex items-center gap-1.5 px-4 py-3 rounded-xl border border-gray-200 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors min-h-[44px]"
             >
               <Edit2 size={15} /> Edit
+            </button>
+          )}
+          {onToggleShare && (
+            <button
+              onClick={onToggleShare}
+              className={`flex items-center gap-1.5 px-4 py-3 rounded-xl border text-sm font-medium transition-colors min-h-[44px] ${
+                isShared
+                  ? 'border-brand-300 bg-brand-50 text-brand-700 hover:bg-brand-100'
+                  : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+              }`}
+              title={isShared ? 'Stop sharing with other households' : 'Share with all households'}
+            >
+              <Globe size={15} /> {isShared ? 'Shared' : 'Share'}
             </button>
           )}
           {onAddToPlan && (

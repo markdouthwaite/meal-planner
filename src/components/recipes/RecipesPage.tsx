@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Plus, Search, SlidersHorizontal, BookOpen } from 'lucide-react';
-import { useAppState, useAppDispatch } from '../../store/AppContext';
+import { useAppState, useAppDispatch, useHouseholdId } from '../../store/AppContext';
 import { RecipeCard } from './RecipeCard';
 import { RecipeDetail } from './RecipeDetail';
 import { RecipeForm } from './RecipeForm';
@@ -28,6 +28,13 @@ interface RecipesPageProps {
 export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: RecipesPageProps) {
   const { recipes, currentPlan } = useAppState();
   const dispatch = useAppDispatch();
+  const householdId = useHouseholdId();
+
+  // A recipe is the current household's own (so editable/shareable) when its
+  // household_id matches. Base recipes (null household_id) and other
+  // households' shared recipes are read-only here.
+  const isOwn = (r: Recipe) => r.household_id != null && r.household_id === householdId;
+  const isBase = (r: Recipe) => r.household_id == null;
 
   const [search, setSearch] = useState('');
   const [activeTypes, setActiveTypes] = useState<MealType[]>([]);
@@ -70,9 +77,18 @@ export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: Recipe
 
   function handleSaveRecipe(recipe: Recipe) {
     if (editingRecipe) {
-      dispatch({ type: 'UPDATE_RECIPE', recipe });
+      // Preserve ownership/share state — only the editable fields change here.
+      dispatch({
+        type: 'UPDATE_RECIPE',
+        recipe: {
+          ...recipe,
+          household_id: editingRecipe.household_id ?? householdId,
+          is_shared: editingRecipe.is_shared ?? false,
+        },
+      });
     } else {
-      dispatch({ type: 'ADD_RECIPE', recipe });
+      // New recipes are owned by the current household and private by default.
+      dispatch({ type: 'ADD_RECIPE', recipe: { ...recipe, household_id: householdId, is_shared: false } });
     }
     setEditingRecipe(undefined);
     setShowAdd(false);
@@ -81,6 +97,13 @@ export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: Recipe
   function handleDeleteRecipe(id: string) {
     dispatch({ type: 'DELETE_RECIPE', id });
     setSelectedRecipe(null);
+  }
+
+  function handleToggleShare(recipe: Recipe) {
+    const next = { ...recipe, is_shared: !recipe.is_shared };
+    dispatch({ type: 'UPDATE_RECIPE', recipe: next });
+    // Keep the open detail view in sync with the toggle.
+    setSelectedRecipe(prev => (prev && prev.id === recipe.id ? next : prev));
   }
 
   return (
@@ -177,6 +200,8 @@ export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: Recipe
                 key={recipe.id}
                 recipe={recipe}
                 inPlan={planIds.has(recipe.id)}
+                isBase={isBase(recipe)}
+                isShared={!!recipe.is_shared}
                 onAddToPlan={mode === 'picker' ? () => handleAddToPlan(recipe.id) : undefined}
                 addLabel={pickLabel}
                 onClick={() => setSelectedRecipe(recipe)}
@@ -192,8 +217,12 @@ export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: Recipe
           recipe={selectedRecipe}
           open={!!selectedRecipe}
           onClose={() => setSelectedRecipe(null)}
-          onEdit={mode === 'full' ? () => { setEditingRecipe(selectedRecipe); setSelectedRecipe(null); setShowAdd(true); } : undefined}
-          onDelete={mode === 'full' ? () => handleDeleteRecipe(selectedRecipe.id) : undefined}
+          // Edit/delete only for recipes this household owns.
+          onEdit={mode === 'full' && isOwn(selectedRecipe) ? () => { setEditingRecipe(selectedRecipe); setSelectedRecipe(null); setShowAdd(true); } : undefined}
+          onDelete={mode === 'full' && isOwn(selectedRecipe) ? () => handleDeleteRecipe(selectedRecipe.id) : undefined}
+          onToggleShare={mode === 'full' && isOwn(selectedRecipe) ? () => handleToggleShare(selectedRecipe) : undefined}
+          isBase={isBase(selectedRecipe)}
+          isShared={!!selectedRecipe.is_shared}
           inPlan={planIds.has(selectedRecipe.id)}
           onAddToPlan={mode === 'picker' ? () => handleAddToPlan(selectedRecipe.id) : undefined}
           addLabel={pickLabel}

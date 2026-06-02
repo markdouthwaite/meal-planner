@@ -35,6 +35,10 @@ It also installs **Row Level Security** on every table so a user can only ever
 read/write data for households they belong to, plus a trigger that makes the
 creator of a household its owner automatically.
 
+> After `0001`, also apply **`supabase/migrations/0002_shared_recipes.sql`**
+> (the base/shared recipe model — see "Recipes: base + shared" below) and then
+> run the **`supabase/seed_recipes.sql`** seed.
+
 **Apply it one of two ways:**
 
 - **Dashboard (quickest):** Supabase project → SQL Editor → paste the contents
@@ -49,6 +53,28 @@ creator of a household its owner automatically.
 
 After running it, check **Table Editor** — you should see the eight tables, and
 **Authentication → Policies** should show RLS enabled with policies on each.
+
+### Recipes: base + shared model
+
+`0002_shared_recipes.sql` makes `recipes.household_id` nullable and adds an
+`is_shared` flag, giving three kinds of recipe — all enforced by RLS:
+
+- **Base** (`household_id IS NULL`): global starter recipes, visible to every
+  household, **read-only** for everyone. Managed by you (SQL/dashboard), not the
+  app.
+- **Private** (`household_id = X`, `is_shared = false`): visible and editable
+  only by household X. This is the default for recipes added in the app.
+- **Shared** (`household_id = X`, `is_shared = true`): visible to **all**
+  households, but still editable/deletable only by the owner (X). Toggle this
+  from a recipe's detail view ("Share").
+
+**Seed the base recipes** by running `supabase/seed_recipes.sql` in the SQL
+editor. It inserts the starter recipes once as global rows and is idempotent
+(skips titles already present), so re-running is safe. That file is **generated**
+from `src/utils/seedData.ts` — regenerate it with `node scripts/gen-seed-sql.mjs`
+whenever the starter recipes change. (If a household was created before base
+recipes existed and got its own copies, the seed file ends with an optional,
+commented cleanup statement to remove the untouched duplicates.)
 
 ## Step 2 — Configure Auth in the Supabase dashboard (single user)
 
@@ -94,7 +120,9 @@ This describes the code changes, which are now in place:
 - `src/store/db.ts` — household bootstrap, initial load, and per-action writes.
 - `src/store/AppContext.tsx` — loads from Supabase on sign-in and mirrors each
   reducer action to the DB; the component-facing API is unchanged.
-- `generateId()` now returns UUIDs; starter recipes seed once per household.
+- `generateId()` now returns UUIDs. Starter recipes are **global base recipes**
+  (seeded once via `seed_recipes.sql`), not copied per household — so there's no
+  client-side seeding. Recipe ownership/sharing UI lives in the Recipes tab.
 
 Notes on what was deferred: Realtime cross-device sync and a one-time
 localStorage→Supabase import are **not** implemented yet (see below). Original

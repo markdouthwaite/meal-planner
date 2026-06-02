@@ -257,6 +257,8 @@ async function persistAction(
 interface AppContextValue {
   state: AppState;
   dispatch: React.Dispatch<Action>;
+  /** Current household id, or null until loaded. Used to gate recipe ownership. */
+  householdId: string | null;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -264,6 +266,7 @@ const AppContext = createContext<AppContextValue | null>(null);
 export function AppProvider({ children }: { children: React.ReactNode }) {
   const [state, baseDispatch] = useReducer(reducer, initialState);
   const [ready, setReady] = useState(false);
+  const [householdId, setHouseholdId] = useState<string | null>(null);
 
   // Set once the household/plan are known; used by the persistence wrapper.
   const householdRef = useRef<string | null>(null);
@@ -282,6 +285,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (cancelled) return;
         householdRef.current = data.householdId;
         planRef.current = data.planId;
+        setHouseholdId(data.householdId);
         baseDispatch({
           type: 'LOAD_STATE',
           state: {
@@ -327,7 +331,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
   }
 
-  return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
+  return (
+    <AppContext.Provider value={{ state, dispatch, householdId }}>{children}</AppContext.Provider>
+  );
 }
 
 export function useAppState() {
@@ -340,4 +346,10 @@ export function useAppDispatch() {
   const ctx = useContext(AppContext);
   if (!ctx) throw new Error('useAppDispatch must be used within AppProvider');
   return ctx.dispatch;
+}
+
+export function useHouseholdId() {
+  const ctx = useContext(AppContext);
+  if (!ctx) throw new Error('useHouseholdId must be used within AppProvider');
+  return ctx.householdId;
 }
