@@ -7,6 +7,7 @@ import {
   aggregateShoppingList,
   shoppingListToCSV,
   shoppingListToChecklist,
+  shoppingListToPlainText,
   downloadCSV,
 } from '../../utils/shopping';
 import { generateId, formatQuantity, UNITS } from '../../utils/helpers';
@@ -287,7 +288,7 @@ function ShoppingPanel({ showClose, onClose }: PanelProps) {
         </button>
         <button
           onClick={() => {
-            const text = shoppingListToChecklist(exportItems, exportManual);
+            const text = shoppingListToPlainText(exportItems, exportManual);
             const link = document.createElement('a');
             link.href = `x-apple-reminderkit://reminderslist/?reminderTitle=${encodeURIComponent('Shopping List')}&reminderNotes=${encodeURIComponent(text)}`;
             link.click();
