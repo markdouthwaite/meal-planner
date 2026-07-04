@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react';
-import { Plus, Search, SlidersHorizontal, BookOpen } from 'lucide-react';
+import { Plus, Search, SlidersHorizontal, BookOpen, Leaf } from 'lucide-react';
 import { useAppState, useAppDispatch } from '../../store/AppContext';
 import { RecipeCard } from './RecipeCard';
 import { RecipeDetail } from './RecipeDetail';
 import { RecipeForm } from './RecipeForm';
 import { EmptyState } from '../ui/EmptyState';
+import { HEALTHY_TAG } from '../../utils/helpers';
 import type { MealType, Recipe } from '../../types';
 
 const ALL_TYPES: MealType[] = ['breakfast', 'lunch', 'dinner', 'snack', 'baby'];
@@ -31,6 +32,7 @@ export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: Recipe
 
   const [search, setSearch] = useState('');
   const [activeTypes, setActiveTypes] = useState<MealType[]>([]);
+  const [activeTags, setActiveTags] = useState<string[]>([]);
   const [showFilters, setShowFilters] = useState(false);
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [editingRecipe, setEditingRecipe] = useState<Recipe | null | undefined>(undefined);
@@ -41,6 +43,27 @@ export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: Recipe
     [currentPlan],
   );
 
+  // Every distinct tag in the library, most-used first (ties alphabetical).
+  // Tags are free text, so dedupe case-insensitively and keep the first
+  // spelling we see for display.
+  const allTags = useMemo(() => {
+    const counts = new Map<string, { label: string; count: number }>();
+    for (const r of recipes) {
+      for (const tag of r.tags) {
+        const key = tag.toLowerCase();
+        const entry = counts.get(key);
+        if (entry) {
+          entry.count++;
+        } else {
+          counts.set(key, { label: tag, count: 1 });
+        }
+      }
+    }
+    return Array.from(counts.values())
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
+      .map(e => e.label);
+  }, [recipes]);
+
   const filtered = useMemo(() => {
     return recipes.filter(r => {
       const matchSearch =
@@ -50,13 +73,22 @@ export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: Recipe
       const matchType =
         activeTypes.length === 0 ||
         activeTypes.some(t => r.meal_type.includes(t));
-      return matchSearch && matchType;
+      const matchTags =
+        activeTags.length === 0 ||
+        activeTags.some(tag => r.tags.some(t => t.toLowerCase() === tag.toLowerCase()));
+      return matchSearch && matchType && matchTags;
     });
-  }, [recipes, search, activeTypes]);
+  }, [recipes, search, activeTypes, activeTags]);
 
   function toggleType(type: MealType) {
     setActiveTypes(prev =>
       prev.includes(type) ? prev.filter(t => t !== type) : [...prev, type]
+    );
+  }
+
+  function toggleTag(tag: string) {
+    setActiveTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     );
   }
 
@@ -102,7 +134,7 @@ export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: Recipe
           <button
             onClick={() => setShowFilters(v => !v)}
             className={`sm:hidden p-2.5 rounded-xl border transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center ${
-              activeTypes.length > 0 || showFilters
+              activeTypes.length > 0 || activeTags.length > 0 || showFilters
                 ? 'bg-brand-50 border-brand-300 text-brand-600'
                 : 'border-gray-200 text-gray-500 hover:bg-gray-50'
             }`}
@@ -123,27 +155,57 @@ export function RecipesPage({ mode = 'full', onPick, pickLabel = 'Add' }: Recipe
         </div>
 
         {/* Filter pills — always visible on sm+, collapsible on mobile */}
-        <div className={`${showFilters ? 'flex' : 'hidden'} sm:flex gap-2 overflow-x-auto pb-1 scrollbar-hide`}>
-          {ALL_TYPES.map(type => (
-            <button
-              key={type}
-              onClick={() => toggleType(type)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors min-h-[36px] ${
-                activeTypes.includes(type)
-                  ? 'bg-brand-600 text-white border-brand-600'
-                  : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'
-              }`}
-            >
-              {TYPE_LABELS[type]}
-            </button>
-          ))}
-          {activeTypes.length > 0 && (
-            <button
-              onClick={() => setActiveTypes([])}
-              className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium text-gray-400 hover:text-gray-700 min-h-[36px]"
-            >
-              Clear all
-            </button>
+        <div className={`${showFilters ? 'block' : 'hidden'} sm:block space-y-2`}>
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+            {ALL_TYPES.map(type => (
+              <button
+                key={type}
+                onClick={() => toggleType(type)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors min-h-[36px] ${
+                  activeTypes.includes(type)
+                    ? 'bg-brand-600 text-white border-brand-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-brand-300'
+                }`}
+              >
+                {TYPE_LABELS[type]}
+              </button>
+            ))}
+            {(activeTypes.length > 0 || activeTags.length > 0) && (
+              <button
+                onClick={() => { setActiveTypes([]); setActiveTags([]); }}
+                className="flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-medium text-gray-400 hover:text-gray-700 min-h-[36px]"
+              >
+                Clear all
+              </button>
+            )}
+          </div>
+
+          {/* Tag pills — one per distinct tag in the library, most-used first */}
+          {allTags.length > 0 && (
+            <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+              {allTags.map(tag => {
+                const active = activeTags.includes(tag);
+                const healthy = tag.toLowerCase() === HEALTHY_TAG;
+                return (
+                  <button
+                    key={tag}
+                    onClick={() => toggleTag(tag)}
+                    className={`flex-shrink-0 flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-medium border transition-colors min-h-[36px] ${
+                      active
+                        ? healthy
+                          ? 'bg-emerald-600 text-white border-emerald-600'
+                          : 'bg-gray-700 text-white border-gray-700'
+                        : healthy
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:border-emerald-400'
+                          : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    {healthy && <Leaf size={11} aria-hidden />}
+                    {tag}
+                  </button>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>
