@@ -1,7 +1,9 @@
 import { Users, PlusCircle } from 'lucide-react';
 import type { Recipe } from '../../types';
 import { MealTypeBadge } from '../ui/MealTypeBadge';
+import { HealthyBadge } from '../ui/HealthyBadge';
 import { RecipeImage } from '../ui/RecipeImage';
+import { isHealthy, HEALTHY_TAG } from '../../utils/helpers';
 
 interface RecipeCardProps {
   recipe: Recipe;
@@ -17,6 +19,9 @@ interface RecipeCardProps {
 }
 
 export function RecipeCard({ recipe, inPlan, onAddToPlan, addLabel = 'Add', onClick }: RecipeCardProps) {
+  // The healthy tag renders as a dedicated badge, so keep it out of the
+  // plain tag chips.
+  const displayTags = recipe.tags.filter(t => t !== HEALTHY_TAG);
   return (
     <div
       className="group bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden flex flex-col cursor-pointer hover:shadow-card-hover hover:-translate-y-0.5 transition-all duration-200 active:scale-[0.98]"
@@ -31,11 +36,12 @@ export function RecipeCard({ recipe, inPlan, onAddToPlan, addLabel = 'Add', onCl
       />
 
       <div className="p-4 flex flex-col flex-1">
-        {recipe.meal_type.length > 0 && (
+        {(recipe.meal_type.length > 0 || isHealthy(recipe)) && (
           <div className="flex flex-wrap gap-1 mb-2">
             {recipe.meal_type.map(t => (
               <MealTypeBadge key={t} type={t} small />
             ))}
+            {isHealthy(recipe) && <HealthyBadge small />}
           </div>
         )}
 
@@ -49,9 +55,9 @@ export function RecipeCard({ recipe, inPlan, onAddToPlan, addLabel = 'Add', onCl
           </p>
         )}
 
-        {recipe.tags.length > 0 && (
+        {displayTags.length > 0 && (
           <div className="flex flex-wrap gap-1 mb-3">
-            {recipe.tags.slice(0, 2).map(tag => (
+            {displayTags.slice(0, 2).map(tag => (
               <span
                 key={tag}
                 className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded-full text-xs"
@@ -59,9 +65,9 @@ export function RecipeCard({ recipe, inPlan, onAddToPlan, addLabel = 'Add', onCl
                 {tag}
               </span>
             ))}
-            {recipe.tags.length > 2 && (
+            {displayTags.length > 2 && (
               <span className="px-2 py-0.5 text-gray-400 text-xs">
-                +{recipe.tags.length - 2}
+                +{displayTags.length - 2}
               </span>
             )}
           </div>
