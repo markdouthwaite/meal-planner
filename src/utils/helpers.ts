@@ -143,6 +143,18 @@ export const MEAL_TYPE_COLOURS: Record<string, string> = {
   baby:      'bg-pink-100 text-pink-800',
 };
 
+/**
+ * Recipes carrying this tag get the "Healthy" leaf badge — i.e. they're the
+ * sort of balanced, veg/legume/whole-grain/lean-protein forward meal a
+ * nutritionist would happily recommend. It's an ordinary tag so users can add
+ * or remove it from their own recipes via the tags field in the recipe form.
+ */
+export const HEALTHY_TAG = 'healthy';
+
+export function isHealthy(recipe: { tags: string[] }): boolean {
+  return recipe.tags.includes(HEALTHY_TAG);
+}
+
 export function formatQuantity(qty: number): string {
   if (qty === Math.floor(qty)) return String(qty);
   return qty.toFixed(1).replace(/\.0$/, '');

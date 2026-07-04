@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react';
 import { Edit2, Trash2, ExternalLink, Users, ArrowLeft } from 'lucide-react';
 import type { Recipe } from '../../types';
 import { MealTypeBadge } from '../ui/MealTypeBadge';
+import { HealthyBadge } from '../ui/HealthyBadge';
 import { RecipeImage } from '../ui/RecipeImage';
 import { Modal } from '../ui/Modal';
-import { formatQuantity } from '../../utils/helpers';
+import { formatQuantity, isHealthy, HEALTHY_TAG } from '../../utils/helpers';
 import { useIsMobile } from '../../utils/useIsMobile';
 
 interface RecipeDetailProps {
@@ -61,10 +62,11 @@ export function RecipeDetail({
       />
 
       <div className="p-5">
-        {/* Meal type badges */}
-        {recipe.meal_type.length > 0 && (
+        {/* Meal type + healthy badges */}
+        {(recipe.meal_type.length > 0 || isHealthy(recipe)) && (
           <div className="flex flex-wrap gap-1.5 mb-3">
             {recipe.meal_type.map(t => <MealTypeBadge key={t} type={t} />)}
+            {isHealthy(recipe) && <HealthyBadge />}
           </div>
         )}
 
@@ -84,10 +86,10 @@ export function RecipeDetail({
           )}
         </div>
 
-        {/* All tags */}
-        {recipe.tags.length > 0 && (
+        {/* All tags (healthy renders as a badge above, not a chip) */}
+        {recipe.tags.filter(t => t !== HEALTHY_TAG).length > 0 && (
           <div className="flex flex-wrap gap-1.5 mb-5">
-            {recipe.tags.map(tag => (
+            {recipe.tags.filter(t => t !== HEALTHY_TAG).map(tag => (
               <span key={tag} className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-full text-xs">
                 {tag}
               </span>

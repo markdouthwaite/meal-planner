@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
 import type { Recipe, MealPlan, ShoppingItem, PlanSlot } from '../types';
-import { getWeekStart, generateId, toLocalDateString, WEEK_DAYS } from '../utils/helpers';
+import { getWeekStart, generateId, toLocalDateString, WEEK_DAYS, HEALTHY_TAG } from '../utils/helpers';
 import { SEED_RECIPES } from '../utils/seedData';
 
 interface AppState {
@@ -338,6 +338,21 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       // ignore — fall through with initialState
     }
 
+    // One-way sync of the `healthy` tag onto already-stored seed recipes.
+    // Seed tag updates otherwise never reach existing installs (seeds are
+    // only added once, keyed by seenSeedIds). We only ever *add* the tag, so
+    // a user who deliberately tagged their own copy differently keeps any
+    // other edits intact.
+    const healthySeedIds = new Set(
+      SEED_RECIPES.filter(s => s.tags.includes(HEALTHY_TAG)).map(s => s.id),
+    );
+    let healthyTagAdded = false;
+    const recipesWithHealthy = loaded.recipes.map(r => {
+      if (!healthySeedIds.has(r.id) || r.tags.includes(HEALTHY_TAG)) return r;
+      healthyTagAdded = true;
+      return { ...r, tags: [...r.tags, HEALTHY_TAG] };
+    });
+
     const seenIds = new Set(loaded.seenSeedIds);
     const existingTitles = new Set(loaded.recipes.map(r => r.title.toLowerCase()));
     const seedsToAdd = SEED_RECIPES.filter(s =>
@@ -345,11 +360,11 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     );
     const allCurrentSeedIds = SEED_RECIPES.map(s => s.id);
     const needsSeenUpdate = allCurrentSeedIds.some(id => !seenIds.has(id));
-    const synced: AppState = (seedsToAdd.length === 0 && !needsSeenUpdate)
+    const synced: AppState = (seedsToAdd.length === 0 && !needsSeenUpdate && !healthyTagAdded)
       ? loaded
       : {
           ...loaded,
-          recipes: [...loaded.recipes, ...seedsToAdd],
+          recipes: [...recipesWithHealthy, ...seedsToAdd],
           seenSeedIds: Array.from(new Set([...loaded.seenSeedIds, ...allCurrentSeedIds])),
         };
 
